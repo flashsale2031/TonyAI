@@ -1,0 +1,3 @@
+/* TONY Pixel Lab 005 — block averaging mosaic. */
+export function mosaic(data,width,height,size=4){const out=new Uint8ClampedArray(data);for(let y=0;y<height;y+=size)for(let x=0;x<width;x+=size){let r=0,g=0,b=0,n=0;for(let yy=y;yy<Math.min(y+size,height);yy++)for(let xx=x;xx<Math.min(x+size,width);xx++){const i=(yy*width+xx)*4;r+=data[i];g+=data[i+1];b+=data[i+2];n++;}r/=n;g/=n;b/=n;for(let yy=y;yy<Math.min(y+size,height);yy++)for(let xx=x;xx<Math.min(x+size,width);xx++){const i=(yy*width+xx)*4;out[i]=r;out[i+1]=g;out[i+2]=b;}}return out;}
+if(typeof window!=='undefined')window.TONYPixel005={mosaic};
