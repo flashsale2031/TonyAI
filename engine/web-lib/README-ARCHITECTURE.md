@@ -1,0 +1,1 @@
+The web library is split into many small browser-native modules. Each module is dependency-free and can be imported directly by the web runtime. The modules are capability facades: they provide a stable command surface for TONY while using standard Web APIs. Server-side Node remains optional and is only needed for privileged operations that browsers cannot safely own.
