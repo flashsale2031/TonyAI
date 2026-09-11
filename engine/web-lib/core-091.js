@@ -1,0 +1,1 @@
+export const core091={run:(v)=>crypto.getRandomValues(new Uint32Array(1))[0]};
