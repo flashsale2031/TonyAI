@@ -1,0 +1,1 @@
+export const core051={run:(v)=>JSON.parse(String(v))};
