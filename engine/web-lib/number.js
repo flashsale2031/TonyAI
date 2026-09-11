@@ -1,0 +1,1 @@
+export const number={clamp:(n,a,b)=>Math.max(a,Math.min(b,n)),round:(n,p=2)=>Number(Number(n).toFixed(p)),range:(a,b,s=1)=>{const r=[];for(let x=a;x<b;x+=s)r.push(x);return r}};
