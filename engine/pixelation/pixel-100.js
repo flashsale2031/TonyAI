@@ -1,0 +1,3 @@
+/* Pixel 100 — master procedural scene compositor combining independent pixel layers. */
+export function composeScene(ctx,w,h,layers=[],{clear=true,background=null}={}){if(clear)ctx.clearRect(0,0,w,h);if(background!==null){ctx.fillStyle=background;ctx.fillRect(0,0,w,h);}const results=[];for(const layer of layers){if(!layer||typeof layer.draw!=='function')continue;ctx.save();if(layer.alpha!=null)ctx.globalAlpha=layer.alpha;if(layer.composite)ctx.globalCompositeOperation=layer.composite;layer.draw(ctx,w,h);ctx.restore();results.push(layer.name||`layer-${results.length+1}`);}return{width:w,height:h,layers:results};}
+if(typeof window!=='undefined')window.TONYPixel100={composeScene};
