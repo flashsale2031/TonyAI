@@ -1,0 +1,2 @@
+export const core094={range:(el)=>{const r=document.createRange();r.selectNodeContents(el);return r},fragment:(html)=>document.createRange().createContextualFragment(html)};
+if(typeof window!=='undefined')window.TONYCore094=core094;
