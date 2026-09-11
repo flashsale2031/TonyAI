@@ -1,0 +1,1 @@
+export const audio={context:()=>new AudioContext(),load:u=>new Audio(u),play:e=>e.play(),pause:e=>e.pause()};
