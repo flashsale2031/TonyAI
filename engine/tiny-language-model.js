@@ -1,0 +1,18 @@
+// Upgraded dependency-free local language model.
+const WORD=/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*|[^\p{L}\p{N}\s]/gu;
+function hashSeed(s){let h=2166136261;for(const c of String(s))h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;}
+export class TinyLanguageModel{
+ constructor({order=5,maxVocabulary=16000,seed=0x9e3779b9}={}){this.order=Math.max(2,Math.min(8,order));this.maxVocabulary=maxVocabulary;this.seed=typeof seed==='number'?seed>>>0:hashSeed(seed);this.counts=new Map();this.contexts=new Map();this.vocabulary=new Map();this.trainedTokens=0;}
+ tokenize(text){return String(text??'').toLowerCase().match(WORD)||[];}
+ train(text){const t=['<s>',...this.tokenize(text),'</s>'];this.trainedTokens+=t.length;for(let i=0;i<t.length;i++){const w=t[i];this.vocabulary.set(w,(this.vocabulary.get(w)||0)+1);for(let n=1;n<=this.order;n++){if(i-n+1<0)continue;const gram=t.slice(i-n+1,i+1).join(' '),ctx=t.slice(Math.max(0,i-n+1),i).join(' ');this.counts.set(gram,(this.counts.get(gram)||0)+1);this.contexts.set(ctx,(this.contexts.get(ctx)||0)+1);}}if(this.vocabulary.size>this.maxVocabulary){this.vocabulary=new Map([...this.vocabulary.entries()].sort((a,b)=>b[1]-a[1]).slice(0,this.maxVocabulary));}return this;}
+ candidates(context){const toks=this.tokenize(context),out=[];for(let n=Math.min(this.order-1,toks.length);n>=0;n--){const prefix=toks.slice(-n).join(' '),den=this.contexts.get(prefix)||0;if(!den)continue;for(const [g,c] of this.counts){const p=g.split(' '),pre=p.slice(0,-1).join(' '),w=p.at(-1);if(pre===prefix&&w!=='</s>')out.push({w,c,den,order:n});}if(out.length)break;}return out;}
+ sample(context,{temperature=.72,topK=8}={}){const cs=this.candidates(context);if(!cs.length)return null;const freq=new Map();for(const x of cs)freq.set(x.w,Math.max(freq.get(x.w)||0,x.c/x.den));const recent=this.tokenize(context).slice(-8);const arr=[...freq].map(([w,p])=>({w,p:Math.pow(Math.max(p,1e-9),1/Math.max(.15,temperature))*(recent.includes(w)?.08:1)})).sort((a,b)=>b.p-a.p).slice(0,topK);const total=arr.reduce((a,x)=>a+x.p,0);if(!total)return arr[0]?.w||null;const r=this.random();let acc=0;for(const x of arr){acc+=x.p/total;if(r<=acc)return x.w;}return arr.at(-1)?.w||null;}
+ random(){this.seed=(Math.imul(1664525,this.seed)+1013904223)>>>0;return this.seed/4294967296;}
+ generate(prompt,{maxTokens=96,temperature=.72,topK=8,seed=null}={}){if(seed!==null)this.seed=hashSeed(seed);let out=String(prompt||'').trim();if(!out)return '';for(let i=0;i<maxTokens;i++){const w=this.sample(out,{temperature,topK});if(!w)break;out+=(/^[,.!?;:%)\]}]/.test(w)||out.endsWith('(')?'':' ')+w;if(/[.!?]$/.test(w)&&i>=10)break;}return out;}
+ perplexity(text){const t=this.tokenize(text);if(t.length<2)return 0;let loss=0,n=0;for(let i=1;i<t.length;i++){const cs=this.candidates(t.slice(0,i).join(' ')),hit=cs.find(x=>x.w===t[i]);loss+=Math.log(1/(hit?hit.c/hit.den:1e-6));n++;}return Math.exp(loss/n);}
+ stats(){return {architecture:'weighted-token-n-gram',order:this.order,grams:this.counts.size,vocabulary:this.vocabulary.size,trainedTokens:this.trainedTokens,perplexityAvailable:true};}
+ toJSON(){return {order:this.order,maxVocabulary:this.maxVocabulary,seed:this.seed,counts:[...this.counts],contexts:[...this.contexts],vocabulary:[...this.vocabulary],trainedTokens:this.trainedTokens};}
+ static fromJSON(x){const m=new TinyLanguageModel(x);m.counts=new Map(x.counts||[]);m.contexts=new Map(x.contexts||[]);m.vocabulary=new Map(x.vocabulary||[]);m.trainedTokens=x.trainedTokens||0;return m;}
+}
+export const createTinyLanguageModel=(corpus='',options={})=>new TinyLanguageModel(options).train(corpus);
+if(typeof window!=='undefined')window.TONYTinyLanguageModel={TinyLanguageModel,createTinyLanguageModel};
