@@ -1,0 +1,1 @@
+export const core031={run:(el)=>el?.getBoundingClientRect?.()};
