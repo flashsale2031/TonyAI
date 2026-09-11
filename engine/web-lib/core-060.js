@@ -1,0 +1,2 @@
+export const core060={parse:(html)=>new DOMParser().parseFromString(String(html),'text/html'),template:(html)=>document.createRange().createContextualFragment(String(html))};
+if(typeof window!=='undefined')window.TONYCore060=core060;
