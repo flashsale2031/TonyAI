@@ -1,0 +1,1 @@
+export const json={parse:(s,d=null)=>{try{return JSON.parse(s)}catch{return d}},stringify:v=>JSON.stringify(v,null,2),clone:v=>JSON.parse(JSON.stringify(v))};
