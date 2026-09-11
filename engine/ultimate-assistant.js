@@ -1,5 +1,5 @@
 import { chromium } from 'playwright';
-import { llmJSON } from './ai/llm.js';
+import { llmJSON } from './llm.js';
 import { groundIntent } from './intelligence/intent-grounder.js';
 import { planTask } from './ai/planner.js';
 import { verifyPlan, verifyOutcome } from './ai/verifier.js';
@@ -31,23 +31,22 @@ export class UltimateAssistant{
   const taskLike=/\b(fill|enter|complete|submit|form|field|data entry|browser|website|page|click|select|type|navigate|inspect|execute)\b/i.test(latest);
   const wantsQueue=/\b(queue|schedule|run later|worker)\b/i.test(latest);
   if(this.cfg.researchEnabled&&/\b(research|find|look up|latest|compare|sources?|what is|who is|how much)\b/i.test(latest)&&!taskLike){try{await this.ensureBrowser();const p=await this.context.newPage();researchResults=await research(p,[latest],this.cfg.researchMaxSources);await p.close();}catch(e){researchResults=[{error:String(e.message||e)}];}}
-  if(targetUrl&&(taskLike||wantsQueue)){
-   try{inspection=await this.openAndInspect(targetUrl);}catch(e){inspection={error:String(e.message||e)};}
+  if(targetUrl&&(taskLike||wantsQueue))try{inspection=await this.openAndInspect(targetUrl);}catch(e){inspection={error:String(e.message||e)};
   }
-  if(wantsQueue&&targetUrl){queued=await this.enqueue({url:targetUrl,title:latest,command:latest});}
-  if(taskLike){
-   try{const pageModel=inspection?.model||{url:'tony-chat',title:'TONY',text:history.map(m=>m.content||'').join('\n'),controls:[],links:[],metrics:{controls:0,links:0,textLength:history.map(m=>m.content||'').join('\n').length}};plan=await planTask({objective:intent.objective,pageModel,research:researchResults});verification=await verifyPlan({objective:intent.objective,pageModel,research:researchResults,plan});}catch(e){verification={approved:false,requiresHuman:true,confidence:0,error:String(e.message||e)};}
-  }
-  const result=await llmJSON({system:`You are TONY, an ultimate AI workspace. Use supplied evidence and capabilities to answer accurately. You have conversational reasoning, research, browser inspection/action planning, deterministic validation, consensus checking, survey-question classification, sensitive-data boundaries, persistent outcome memory, queues, audit logging, recovery, and visual fallback. Never claim a browser action, submission, research result, or external change happened unless the server actually performed it. Security credentials, MFA/CAPTCHA, passwords, banking/payment information and other sensitive boundaries require human handling. Planning/verification are evidence, not proof. If a tool is unavailable, say so plainly. Return a concise useful response.`,user:JSON.stringify({messages:history,intent,questionType,boundary,research:researchResults,inspection,planning:plan,verification,queued,attachments}),schemaHint:'{reply:string,confidence:number,requiresHuman:boolean,suggestedActions?:string[]}'});
-  await this.audit.event('chat_completed',{intent,questionType,confidence:result.confidence??null,inspected:!!inspection,queued:!!queued});
-  return {...result,intent,questionType,boundary,research:researchResults,inspection,plan,verification,queued};
+  if(wantsQueue&&targetUrl)queued=await this.enqueue({url:targetUrl,title:latest,command:latest});
+  if(taskLike){try{const pageModel=inspection?.model||{url:'tony-chat',title:'TONY',text:history.map(m=>m.content||'').join('\n'),controls:[],links:[],metrics:{controls:0,links:0,textLength:history.map(m=>m.content||'').join('\n').length}};plan=await planTask({objective:intent.objective,pageModel,research:researchResults});verification=await verifyPlan({objective:intent.objective,pageModel,research:researchResults,plan});}catch(e){verification={approved:false,requiresHuman:true,confidence:0,error:String(e.message||e)};}}
+  const imageAttachments=(Array.isArray(attachments)?attachments:[]).filter(a=>/^image\//i.test(a?.type||'')&&typeof a?.dataUrl==='string').slice(0,4).map(a=>({name:a.name,type:a.type,dataUrl:a.dataUrl}));
+  const safeAttachments=(Array.isArray(attachments)?attachments:[]).slice(0,12).map(a=>({name:a?.name||'attachment',type:a?.type||'application/octet-stream',size:Number(a?.size||0)}));
+  const result=await llmJSON({system:`You are TONY, an ultimate AI workspace. Use supplied evidence and capabilities to answer accurately. You have conversational reasoning, research, browser inspection/action planning, deterministic validation, consensus checking, survey-question classification, sensitive-data boundaries, persistent outcome memory, queues, audit logging, recovery, and visual fallback. Images attached to this turn are direct visual evidence; analyze them when relevant, but do not infer identity or sensitive traits. Never claim a browser action, submission, research result, or external change happened unless the server actually performed it. Security credentials, MFA/CAPTCHA, passwords, banking/payment information and other sensitive boundaries require human handling. Planning/verification are evidence, not proof. If a tool is unavailable, say so plainly. Return a concise useful response.`,user:{payload:{messages:history,intent,questionType,boundary,research:researchResults,inspection,planning:plan,verification,queued,attachments:safeAttachments},images:imageAttachments},schemaHint:'{reply:string,confidence:number,requiresHuman:boolean,suggestedActions?:string[]}'});
+  await this.audit.event('chat_completed',{intent,questionType,confidence:result.confidence??null,inspected:!!inspection,queued:!!queued,images:imageAttachments.length});
+  return {...result,intent,questionType,boundary,research:researchResults,inspection,plan,verification,queued,attachmentCount:safeAttachments.length};
  }
  async inspect(url){return this.openAndInspect(url);}
  async enqueue(input){const a=await this.queue.enqueue(input);await this.audit.event('assignment_queued',{id:a.id,title:a.title,url:a.url});return a;}
  async queueStatus(){return {size:await this.queue.size(),assignments:await this.queue.list()};}
  async auditTail(){return this.audit.tail(100);}
  async memoryHints(domain=''){return this.memory.hints(domain);}
- capabilities(){return {chat:true,research:this.cfg.researchEnabled,browserInspection:true,browserAutomation:true,visualFallback:true,planning:true,verification:true,policy:true,surveyClassifier:true,profileBoundary:true,consensus:true,deterministicValidation:true,outcomeMemory:true,queue:true,audit:true,recovery:true,attachments:true,securityBoundaries:true,autoSubmit:this.cfg.autoSubmit};}
+ capabilities(){return {chat:true,research:this.cfg.researchEnabled,browserInspection:true,browserAutomation:true,visualFallback:true,planning:true,verification:true,policy:true,surveyClassifier:true,profileBoundary:true,consensus:true,deterministicValidation:true,outcomeMemory:true,queue:true,audit:true,recovery:true,attachments:true,multimodalImages:true,securityBoundaries:true,autoSubmit:this.cfg.autoSubmit};}
  validate(field,value){return validateField(field,value);}
  agree(candidates){return consensus(candidates);}
  async recover(url){await this.ensureBrowser();const p=await this.context.newPage();try{await p.goto(url,{waitUntil:'domcontentloaded'});return await recover({page:p,dashboardUrl:this.cfg.dashboardUrl,inspect:inspectPage});}finally{await p.close();}}
