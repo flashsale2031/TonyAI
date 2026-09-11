@@ -19,8 +19,10 @@ async function handler(req,res){
     if(req.method==='GET'&&req.url.startsWith('/api/memory'))return json(res,200,await assistant.memoryHints(new URL(req.url,'http://localhost').searchParams.get('domain')||''));
     if(req.method==='POST'&&req.url==='/api/inspect'){const b=await body(req);if(!b.url)return json(res,400,{error:'url is required'});return json(res,200,await assistant.inspect(b.url));}
     if(req.method==='POST'&&req.url==='/api/queue'){const b=await body(req);if(!b.url&&!b.title)return json(res,400,{error:'url or title is required'});return json(res,201,await assistant.enqueue(b));}
-    if(req.method==='POST'&&req.url==='/api/validate')return json(res,200,assistant.validate((await body(req)).field||{},(await body(req)).value));
-    if(req.method==='GET'&&(req.url==='/'||req.url==='/index.html')){const html=await readFile(path.join(root,'index.html'),'utf8');const client=await readFile(path.join(root,'engine','chat-client.js'),'utf8');return void(res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}),res.end(html.replace('</body>',`<script>${client}</script></body>`)));}
+    if(req.method==='POST'&&req.url==='/api/validate'){const b=await body(req);return json(res,200,assistant.validate(b.field||{},b.value));}
+    if(req.method==='POST'&&req.url==='/api/consensus'){const b=await body(req);return json(res,200,assistant.agree(b.candidates||[]));}
+    if(req.method==='POST'&&req.url==='/api/recover'){const b=await body(req);if(!b.url)return json(res,400,{error:'url is required'});return json(res,200,await assistant.recover(b.url));}
+    if(req.method==='GET'&&(req.url==='/'||req.url==='/index.html')){const html=await readFile(path.join(root,'index.html'),'utf8');const client=await readFile(path.join(root,'engine','chat-client.js'),'utf8');res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});return res.end(html.replace('</body>',`<script>${client}</script></body>`));}
     if(req.method==='GET'&&req.url==='/health')return json(res,200,{ok:true,service:'TONY',version:'1.1.0',capabilities:assistant.capabilities()});
     return json(res,404,{error:'Not found'});
   }catch(e){return json(res,500,{error:String(e.message||e)});}
