@@ -1,0 +1,2 @@
+export const core017={keys(value){return Object.keys(value??{});},values(value){return Object.values(value??{});},entries(value){return Object.entries(value??{});},fromEntries(value){return Object.fromEntries(value??[]);}};
+if(typeof window!=='undefined')window.TONYCore017=core017;
