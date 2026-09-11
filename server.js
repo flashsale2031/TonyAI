@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { UltimateAssistant } from './engine/ultimate-assistant.js';
+import { duckduckgoSearch } from './engine/duckduckgo.js';
 import { generateArtifacts } from './engine/file-generator.js';
 
 const root=path.dirname(fileURLToPath(import.meta.url));
@@ -30,6 +31,10 @@ async function handler(req,res){
   try{
     if(req.method==='POST'&&req.url==='/api/chat'){const result=await assistant.chat(await body(req));return json(res,200,materializeChatArtifacts(result));}
     if(req.method==='POST'&&req.url==='/api/image')return json(res,200,await generateImage(await body(req)));
+    if(req.method==='POST'&&req.url==='/api/search'){
+      const b=await body(req);if(!b.query)return json(res,400,{error:'query is required'});
+      return json(res,200,await duckduckgoSearch(b.query,{maxResults:b.maxResults||8,region:b.region||process.env.DUCKDUCKGO_REGION||'wt-wt',safeSearch:b.safeSearch||process.env.DUCKDUCKGO_SAFESEARCH||'moderate'}));
+    }
     if(req.method==='POST'&&req.url==='/api/files'){
       const b=await body(req);const files=Array.isArray(b.files)?b.files:[];if(!files.length)return json(res,400,{error:'files array is required'});if(files.length>50)return json(res,400,{error:'Maximum 50 files per artifact request'});return json(res,200,generateArtifacts({files,zip:b.zip===true,zipName:b.zipName||'tony-downloads.zip'}));
     }
@@ -44,7 +49,7 @@ async function handler(req,res){
     if(req.method==='POST'&&req.url==='/api/recover'){const b=await body(req);if(!b.url)return json(res,400,{error:'url is required'});return json(res,200,await assistant.recover(b.url));}
     if(req.method==='GET'&&req.url==='/runtime.js'){const js=await readFile(path.join(root,'engine','web-runtime.js'),'utf8');res.writeHead(200,{'content-type':'text/javascript; charset=utf-8','cache-control':'public, max-age=3600'});return res.end(js);}
     if(req.method==='GET'&&(req.url==='/'||req.url==='/index.html')){const html=await readFile(path.join(root,'index.html'),'utf8');const runtime=await readFile(path.join(root,'engine','web-runtime.js'),'utf8');const image=await readFile(path.join(root,'engine','image-chat.js'),'utf8');const client=await readFile(path.join(root,'engine','chat-client.js'),'utf8');const injected=`<script>${runtime}</script><script>${image}</script><script>${client}</script>`;res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});return res.end(html.replace('</body>',`${injected}</body>`));}
-    if(req.method==='GET'&&req.url==='/health')return json(res,200,{ok:true,service:'TONY',version:'2.2.0',capabilities:{...assistant.capabilities(),webRuntime:true,runtimeVersion:'2.0.0',imageGeneration:true,fileGeneration:true,zipGeneration:true}});
+    if(req.method==='GET'&&req.url==='/health')return json(res,200,{ok:true,service:'TONY',version:'2.3.0',capabilities:{...assistant.capabilities(),webRuntime:true,runtimeVersion:'2.0.0',imageGeneration:true,fileGeneration:true,zipGeneration:true}});
     return json(res,404,{error:'Not found'});
   }catch(e){return json(res,500,{error:String(e.message||e)});}
 }
