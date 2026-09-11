@@ -1,0 +1,2 @@
+export const core057={visible:(el)=>!!(el?.offsetWidth||el?.offsetHeight||el?.getClientRects?.().length),rect:(el)=>el?.getBoundingClientRect?.()};
+if(typeof window!=='undefined')window.TONYCore057=core057;
