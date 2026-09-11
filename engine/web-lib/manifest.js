@@ -1,0 +1,1 @@
+export const manifest={version:'2.1.0',modules:100,browserNative:true,nodeRequired:false,dependencyFree:true,api:'ESM'};
