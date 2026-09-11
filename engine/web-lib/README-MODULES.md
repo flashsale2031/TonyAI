@@ -1,0 +1,1 @@
+The library catalog contains more than 100 browser capability names. The core runtime, loader, registry and native modules are dependency-free. Node.js is optional for server-only capabilities.
