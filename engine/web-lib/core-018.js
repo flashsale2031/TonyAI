@@ -1,0 +1,2 @@
+export const core018={pick(value,fields=[]){const o={};for(const k of fields)if(k in (value??{}))o[k]=value[k];return o;},omit(value,fields=[]){const blocked=new Set(fields),o={};for(const [k,v] of Object.entries(value??{}))if(!blocked.has(k))o[k]=v;return o;}};
+if(typeof window!=='undefined')window.TONYCore018=core018;
