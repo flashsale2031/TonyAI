@@ -1,0 +1,1 @@
+export const core061={run:(v)=>Math.abs(Number(v)||0)};
