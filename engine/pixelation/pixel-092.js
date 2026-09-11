@@ -1,0 +1,3 @@
+/* Pixel 092 — L-system plant generator with deterministic branching. */
+export function lSystemPlant(ctx,x,y,axiom='F',rules={F:'FF+[+F-F-F]-[-F+F+F]'},iterations=2,step=3,angle=Math.PI/6){let s=axiom;for(let k=0;k<iterations;k++)s=[...s].map(c=>rules[c]||c).join('');let stack=[],a=-Math.PI/2;for(const c of s){if(c==='F'){const nx=Math.round(x+Math.cos(a)*step),ny=Math.round(y+Math.sin(a)*step);ctx.fillRect(nx,ny,1,1);x=nx;y=ny;}else if(c==='+')a+=angle;else if(c==='-')a-=angle;else if(c==='[')stack.push([x,y,a]);else if(c===']')[x,y,a]=stack.pop();}return s;}
+if(typeof window!=='undefined')window.TONYPixel092={lSystemPlant};
