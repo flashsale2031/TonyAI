@@ -1,0 +1,1 @@
+export const events=new EventTarget();export const emit=(type,detail)=>events.dispatchEvent(new CustomEvent(type,{detail}));export const on=(type,fn)=>{const h=e=>fn(e.detail,e);events.addEventListener(type,h);return()=>events.removeEventListener(type,h)};
