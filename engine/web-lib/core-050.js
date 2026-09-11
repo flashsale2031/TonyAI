@@ -1,0 +1,2 @@
+export const core050={post:(url,data,init={})=>fetch(url,{...init,method:'POST',headers:{'content-type':'application/json',...(init.headers||{})},body:JSON.stringify(data)})};
+if(typeof window!=='undefined')window.TONYCore050=core050;
