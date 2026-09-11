@@ -1,0 +1,1 @@
+export const core005={name:'core-005',browserNative:true,run:(v)=>v==null?'':String(v).trim()};
