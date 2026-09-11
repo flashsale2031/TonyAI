@@ -1,0 +1,2 @@
+export const core072={dispatch:(name,detail)=>window.dispatchEvent(new CustomEvent(name,{detail})),listen:(name,fn)=>window.addEventListener(name,fn)};
+if(typeof window!=='undefined')window.TONYCore072=core072;
