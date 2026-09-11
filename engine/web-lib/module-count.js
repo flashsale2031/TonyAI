@@ -1,0 +1,1 @@
+export const WEB_MODULE_COUNT=100;
