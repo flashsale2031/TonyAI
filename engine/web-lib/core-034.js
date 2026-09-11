@@ -1,0 +1,2 @@
+export const core034={on:(el,event,fn,opt)=>el?.addEventListener?.(event,fn,opt),off:(el,event,fn,opt)=>el?.removeEventListener?.(event,fn,opt)};
+if(typeof window!=='undefined')window.TONYCore034=core034;
