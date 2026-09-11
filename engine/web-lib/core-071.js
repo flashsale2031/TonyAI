@@ -1,0 +1,1 @@
+export const core071={run:(a)=>a?.find?.(Boolean)};
