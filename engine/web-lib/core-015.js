@@ -1,0 +1,2 @@
+export const core015={has(value,item){return Array.from(value??[]).includes(item);},index(value,item){return Array.from(value??[]).indexOf(item);},count(value,item){return Array.from(value??[]).filter(x=>x===item).length;}};
+if(typeof window!=='undefined')window.TONYCore015=core015;
