@@ -1,0 +1,2 @@
+export const core089={uuid:()=>crypto.randomUUID(),hash:async(v)=>{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(v)));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}};
+if(typeof window!=='undefined')window.TONYCore089=core089;
