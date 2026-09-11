@@ -20,9 +20,15 @@ async function generateImage(input){
   const item=d?.data?.[0];if(!item?.b64_json)throw new Error('Image provider returned no image data');
   return {image:`data:image/${payload.output_format};base64,${item.b64_json}`,model:payload.model,size:payload.size,quality:payload.quality,background:payload.background};
 }
+function materializeChatArtifacts(result){
+  const files=Array.isArray(result?.files)?result.files.filter(f=>f&&typeof f.filename==='string'&&typeof f.content==='string').slice(0,50):[];
+  if(!files.length)return result;
+  const artifacts=generateArtifacts({files,zip:result.zip===true||files.length>1,zipName:result.zipName||'tony-generated-files.zip'});
+  return {...result,artifacts};
+}
 async function handler(req,res){
   try{
-    if(req.method==='POST'&&req.url==='/api/chat')return json(res,200,await assistant.chat(await body(req)));
+    if(req.method==='POST'&&req.url==='/api/chat'){const result=await assistant.chat(await body(req));return json(res,200,materializeChatArtifacts(result));}
     if(req.method==='POST'&&req.url==='/api/image')return json(res,200,await generateImage(await body(req)));
     if(req.method==='POST'&&req.url==='/api/files'){
       const b=await body(req);const files=Array.isArray(b.files)?b.files:[];if(!files.length)return json(res,400,{error:'files array is required'});if(files.length>50)return json(res,400,{error:'Maximum 50 files per artifact request'});return json(res,200,generateArtifacts({files,zip:b.zip===true,zipName:b.zipName||'tony-downloads.zip'}));
