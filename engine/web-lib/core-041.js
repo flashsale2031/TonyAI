@@ -1,0 +1,1 @@
+export const core041={run:(v)=>sessionStorage.setItem('tony',JSON.stringify(v))};
