@@ -1,0 +1,1 @@
+export const core003={name:'core-003',browserNative:true,run:(v)=>Array.isArray(v)?v.slice():[v]};
