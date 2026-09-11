@@ -1,0 +1,2 @@
+export const core042={get:(k,d=null)=>{try{return JSON.parse(sessionStorage.getItem(k)??'null')??d}catch{return d}},set:(k,v)=>sessionStorage.setItem(k,JSON.stringify(v))};
+if(typeof window!=='undefined')window.TONYCore042=core042;
