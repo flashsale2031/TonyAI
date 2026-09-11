@@ -1,0 +1,15 @@
+// Chunked local-model asset manager.
+// Large model files stay outside normal Git blobs. This loader supports a manifest
+// split into independently downloadable parts, verifies each part, and reassembles
+// them in IndexedDB. It is suitable for self-hosted model shards or a CDN.
+const DB='tony-local-models-v1';
+const STORE='shards';
+const openDB=()=>new Promise((resolve,reject)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
+const get=async key=>{const db=await openDB();return new Promise((resolve,reject)=>{const r=db.transaction(STORE,'readonly').objectStore(STORE).get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})};
+const put=async(key,value)=>{const db=await openDB();return new Promise((resolve,reject)=>{const r=db.transaction(STORE,'readwrite').objectStore(STORE).put(value,key);r.onsuccess=()=>resolve();r.onerror=()=>reject(r.error)})};
+async function sha256(bytes){const h=await crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+export async function fetchShard(shard,{onProgress}={}){const cached=await get(shard.id);if(cached)return new Uint8Array(cached);const r=await fetch(shard.url,{cache:'force-cache'});if(!r.ok)throw new Error(`Model shard ${shard.id} failed: ${r.status}`);const total=Number(r.headers.get('content-length')||shard.bytes||0);const reader=r.body?.getReader();let chunks=[],received=0;if(reader){for(;;){const x=await reader.read();if(x.done)break;chunks.push(x.value);received+=x.value.byteLength;onProgress?.({id:shard.id,received,total});}}else{chunks=[new Uint8Array(await r.arrayBuffer())];received=chunks[0].byteLength}const out=new Uint8Array(received);let p=0;for(const c of chunks){out.set(c,p);p+=c.length}if(shard.sha256){const digest=await sha256(out);if(digest!==shard.sha256)throw new Error(`Model shard ${shard.id} checksum mismatch`) }await put(shard.id,out.buffer);return out}
+export async function loadShardedModel(manifest,{onProgress}={}){if(!manifest?.shards?.length)throw new Error('Model manifest has no shards');const parts=[];for(let i=0;i<manifest.shards.length;i++){parts.push(await fetchShard(manifest.shards[i],{onProgress:e=>onProgress?.({...e,index:i,totalShards:manifest.shards.length})}))}const size=parts.reduce((n,p)=>n+p.byteLength,0),all=new Uint8Array(size);let offset=0;for(const p of parts){all.set(p,offset);offset+=p.byteLength}return {name:manifest.name,bytes:all,byteLength:size,shards:manifest.shards.length,format:manifest.format||'unknown'}}
+export async function clearModelCache(){const db=await openDB();await new Promise((resolve,reject)=>{const r=db.transaction(STORE,'readwrite').objectStore(STORE).clear();r.onsuccess=resolve;r.onerror=()=>reject(r.error)})}
+export const modelShardManager={fetchShard,loadShardedModel,clearModelCache};
+if(typeof window!=='undefined')window.TONYModelShards=modelShardManager;
