@@ -1,0 +1,1 @@
+export const string={slug:s=>String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''),words:s=>String(s).trim().split(/\s+/).filter(Boolean),truncate:(s,n)=>String(s).length>n?String(s).slice(0,n-1)+'…':String(s)};
