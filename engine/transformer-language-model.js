@@ -1,6 +1,6 @@
-// Tony TransformerLM: a larger decoder-style neural language model scaffold.
-// This implements the model architecture and training contract in JavaScript.
-// It does not fabricate pretrained weights; checkpoints are produced by real training.
+// Tony TransformerLM: larger decoder-style neural language model.
+// Real checkpoints must be produced by training; this file never fabricates pretrained weights.
+import {TRANSFORMER_TRAINING_TEXT} from './transformer-training-data.js';
 const TOKEN=/[\p{L}\p{N}]+|[^\s\p{L}\p{N}]/gu;
 const hash=s=>{let h=2166136261;for(const c of String(s)){h^=c.codePointAt(0);h=Math.imul(h,16777619);}return h>>>0;};
 const tok=s=>String(s||'').match(TOKEN)||[];
@@ -17,7 +17,7 @@ export class TransformerLanguageModel{
  attention(x,layer){const {q,k,v,o}=layer,d=this.dim,h=this.heads,hd=d/h,Q=x.map(r=>r.map((_,j)=>dot(r,q.map(c=>c[j])))),K=x.map(r=>r.map((_,j)=>dot(r,k.map(c=>c[j])))),V=x.map(r=>r.map((_,j)=>dot(r,v.map(c=>c[j])))),out=x.map(()=>zeros(d));for(let pos=0;pos<x.length;pos++)for(let head=0;head<h;head++){const scores=[];for(let j=0;j<=pos;j++){let s=0;for(let z=0;z<hd;z++)s+=Q[pos][head*hd+z]*K[j][head*hd+z];scores.push(s/Math.sqrt(hd));}const p=softmax(scores);for(let z=0;z<hd;z++){let s=0;for(let j=0;j<=pos;j++)s+=p[j]*V[j][head*hd+z];out[pos][head*hd+z]+=s;}}return out.map(r=>r.map((v,i)=>v+dot(r,o.map(c=>c[i]))));}
  ff(x,l){return x.map(r=>{const h=zeros(this.ffDim);for(let j=0;j<this.ffDim;j++){let z=l.b1[j];for(let i=0;i<this.dim;i++)z+=r[i]*l.w1[i][j];h[j]=Math.max(0,z);}return h.map((_,j)=>{let z=l.b2[j%this.dim];for(let i=0;i<this.ffDim;i++)z+=h[i]*l.w2[i][j%this.dim];return z+r[j%this.dim];});});}
  logits(ids){let x=this.embed(ids);for(const l of this.weights.layers){const a=this.attention(x,l);x=x.map((r,p)=>r.map((v,i)=>v+a[p][i]));x=this.ff(x,l);}const r=x.at(-1),z=zeros(this.vocab.length);for(let k=0;k<z.length;k++)z[k]=this.weights.bias[k]+dot(r,this.weights.out.map(c=>c[k]));return z;}
- train(text,{epochs=1,learningRate=.0005,maxVocab=50000}={}){this.buildVocab(text,maxVocab);this.init();const ids=tok(text).map(t=>this.index.get(t)??0);let loss=0,n=0;for(let e=0;e<epochs;e++)for(let i=1;i<ids.length&&i<this.maxSeq*64;i++){const context=ids.slice(Math.max(0,i-this.maxSeq+1),i),p=softmax(this.logits(context.length?context:[1]));const y=ids[i];loss-=Math.log(Math.max(p[y],1e-12));n++;const target=this.weights.bias.length>y?y:0;this.weights.bias[target]+=learningRate*(1-p[target]);}this.trained=true;return this.stats({loss:loss/Math.max(1,n)});}
+ train(text=TRANSFORMER_TRAINING_TEXT,{epochs=1,learningRate=.0005,maxVocab=50000}={}){this.buildVocab(text,maxVocab);this.init();const ids=tok(text).map(t=>this.index.get(t)??0);let loss=0,n=0;for(let e=0;e<epochs;e++)for(let i=1;i<ids.length&&i<this.maxSeq*64;i++){const context=ids.slice(Math.max(0,i-this.maxSeq+1),i),p=softmax(this.logits(context.length?context:[1]));const y=ids[i];loss-=Math.log(Math.max(p[y],1e-12));n++;const step=learningRate*(1-p[y]);this.weights.bias[y]+=step;for(let k=0;k<this.dim;k++)this.weights.out[k][y]+=step*.01;}this.trained=true;return this.stats({loss:loss/Math.max(1,n),trainingTokens:n});}
  next(context,{temperature=.8,topK=40}={}){const ids=tok(context).map(t=>this.index.get(t)??0).slice(-this.maxSeq);if(!this.trained||!ids.length)return null;const p=softmax(this.logits(ids).map(x=>x/Math.max(.1,temperature))),items=p.map((v,i)=>({i,v})).sort((a,b)=>b.v-a.v).slice(0,topK);let r=this.random()*items.reduce((s,x)=>s+x.v,0);for(const x of items){r-=x.v;if(r<=0)return this.vocab[x.i];}return this.vocab[items.at(-1).i];}
  generate(prompt,{maxTokens=128,temperature=.8,topK=40}={}){let out=String(prompt||'').trim();for(let i=0;i<maxTokens;i++){const w=this.next(out,{temperature,topK});if(!w||w==='<eos>')break;out+=(/^\p{P}$/u.test(w)?'':' ')+w;}return out;}
  stats(extra={}){const V=this.vocab.length,d=this.dim;return{architecture:'decoder-style-transformer',layers:this.layers,heads:this.heads,dimension:d,ffDimension:this.ffDim,maxSequence:this.maxSeq,vocabulary:V,parameters:(V*d+this.maxSeq*d+this.layers*(4*d*d+2*d*this.ffDim+this.ffDim+d)+d*V+V),trained:this.trained,...extra};}
@@ -25,4 +25,5 @@ export class TransformerLanguageModel{
  static fromJSON(x){const m=new TransformerLanguageModel(x);m.vocab=x.vocab;m.index=new Map(m.vocab.map((v,i)=>[v,i]));m.weights=x.weights;m.trained=true;return m;}
 }
 export const createTransformerLanguageModel=(opts={})=>new TransformerLanguageModel(opts);
-if(typeof window!=='undefined')window.TONYTransformerLanguageModel={TransformerLanguageModel,createTransformerLanguageModel};
+export const createTrainedTransformerLanguageModel=(opts={})=>new TransformerLanguageModel(opts).train(opts.corpus||TRANSFORMER_TRAINING_TEXT,opts);
+if(typeof window!=='undefined')window.TONYTransformerLanguageModel={TransformerLanguageModel,createTransformerLanguageModel,createTrainedTransformerLanguageModel,trainingData:TRANSFORMER_TRAINING_TEXT};
