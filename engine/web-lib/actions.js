@@ -1,0 +1,1 @@
+export const actions={click:e=>{e?.click();return true},focus:e=>{e?.focus();return true},blur:e=>{e?.blur();return true},remove:e=>{e?.remove();return true}};
