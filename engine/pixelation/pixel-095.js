@@ -1,0 +1,3 @@
+/* Pixel 095 — procedural dungeon map with rooms and corridor carving. */
+export function dungeon(width,height,rooms=8,seed=109){let s=seed>>>0,r=()=>((s=s*1664525+1013904223>>>0)/4294967296),g=Array.from({length:height},()=>Array(width).fill(1));const rs=[];for(let k=0;k<rooms;k++){const rw=4+(r()*7|0),rh=4+(r()*5|0),x=1+(r()*Math.max(1,width-rw-2)|0),y=1+(r()*Math.max(1,height-rh-2)|0);for(let yy=y;yy<y+rh;yy++)for(let xx=x;xx<x+rw;xx++)g[yy][xx]=0;rs.push([x+rw/2|0,y+rh/2|0]);}for(let i=1;i<rs.length;i++){let [x,y]=rs[i-1],[tx,ty]=rs[i];while(x!==tx){g[y][x]=0;x+=Math.sign(tx-x);}while(y!==ty){g[y][x]=0;y+=Math.sign(ty-y);}}return g;}
+if(typeof window!=='undefined')window.TONYPixel095={dungeon};
