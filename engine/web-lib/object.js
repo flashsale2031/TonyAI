@@ -1,0 +1,1 @@
+export const object={pick:(o,ks)=>Object.fromEntries(ks.filter(k=>k in o).map(k=>[k,o[k]])),omit:(o,ks)=>Object.fromEntries(Object.entries(o).filter(([k])=>!ks.includes(k))),map:(o,fn)=>Object.fromEntries(Object.entries(o).map(([k,v])=>[k,fn(v,k)]))};
