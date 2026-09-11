@@ -1,0 +1,1 @@
+export const accessibility={roles:e=>[...e.querySelectorAll('[role]')].map(x=>({role:x.getAttribute('role'),text:x.innerText})),labels:e=>[...e.querySelectorAll('input,button,textarea,select')].map(x=>({label:x.getAttribute('aria-label')||x.getAttribute('title')||'',tag:x.tagName}))};
