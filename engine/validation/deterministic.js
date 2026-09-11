@@ -1,0 +1,1 @@
+export function validateField(field,value){if(field.required&&(value===undefined||value===null||String(value).trim()===''))return {ok:false,reason:'required'};if(field.type==='email'&&value&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value)))return {ok:false,reason:'invalid-email'};return {ok:true};}

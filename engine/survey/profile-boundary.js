@@ -1,0 +1,1 @@
+export function allowedAnswer(question,profile={},research={}){const key=String(question).toLowerCase();if(/password|ssn|bank|card number/.test(key))return {allowed:false,reason:'sensitive-profile-data'};return {allowed:true,profile,research};}

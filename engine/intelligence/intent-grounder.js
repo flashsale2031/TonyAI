@@ -1,0 +1,1 @@
+export function groundIntent(task,page){const text=[task?.title,task?.description,page?.text].filter(Boolean).join('\n');return {objective:task?.objective||task?.title||'Complete task',entities:[...new Set((text.match(/\b[A-Z][\w-]{2,}\b/g)||[]))].slice(0,30),ambiguity:text.length<20};}

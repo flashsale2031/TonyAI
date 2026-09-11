@@ -1,0 +1,2 @@
+import fs from 'node:fs/promises';import path from 'node:path';
+export class Audit{constructor(file){this.file=file;}async event(type,data={}){await fs.mkdir(path.dirname(this.file),{recursive:true});const row={ts:new Date().toISOString(),type,...data};await fs.appendFile(this.file,JSON.stringify(row)+'\n');return row;}async tail(limit=50){try{return(await fs.readFile(this.file,'utf8')).trim().split('\n').filter(Boolean).slice(-limit).map(JSON.parse);}catch{return [];}}}

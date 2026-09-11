@@ -1,0 +1,1 @@
+export function classifyQuestion(q=''){const t=q.toLowerCase();if(/email|phone|address|password|ssn|social security/.test(t))return 'sensitive';if(/select|choose|which|yes or no/.test(t))return 'choice';if(/rate|scale|satisfaction/.test(t))return 'scale';if(/explain|describe|why|what do you/.test(t))return 'free-text';return 'unknown';}

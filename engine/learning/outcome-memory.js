@@ -1,0 +1,2 @@
+import fs from 'node:fs/promises';
+export class OutcomeMemory{constructor(file='data/outcomes.jsonl'){this.file=file;}async record(x){await fs.mkdir(this.file.split('/').slice(0,-1).join('/')||'.',{recursive:true});await fs.appendFile(this.file,JSON.stringify({...x,ts:new Date().toISOString()})+'\n');}async hints(domain){try{const rows=(await fs.readFile(this.file,'utf8')).trim().split('\n').filter(Boolean).map(JSON.parse);return rows.filter(x=>x.domain===domain).slice(-20);}catch{return [];}}}

@@ -1,0 +1,1 @@
+export async function visualFallback(page,enabled=true){if(!enabled)return null;const shot=await page.screenshot({type:'png',fullPage:false});return {bytes:shot,mime:'image/png',reason:'DOM completeness heuristic requested visual confirmation'};}
