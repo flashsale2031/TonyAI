@@ -1,0 +1,2 @@
+export const core047={download:(blob,name)=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}};
+if(typeof window!=='undefined')window.TONYCore047=core047;
