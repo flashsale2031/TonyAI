@@ -1,0 +1,2 @@
+export const core029={merge:(a,b)=>({...a,...b}),pick:(v,ks)=>Object.fromEntries(Array.from(ks??[]).filter(k=>k in (v??{})).map(k=>[k,v[k]]))};
+if(typeof window!=='undefined')window.TONYCore029=core029;
