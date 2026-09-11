@@ -1,8 +1,9 @@
 {
   "name":"tonyai",
-  "version":"1.0.0",
+  "version":"1.1.0",
   "private":true,
   "type":"module",
-  "scripts":{"start":"node server.js"},
-  "dependencies":{"dotenv":"^16.4.7"}
+  "description":"TONY ultimate AI chat workspace powered by the supplied data-entry agent modules.",
+  "scripts":{"start":"node server.js","worker":"node engine/agent.js","doctor":"node scripts/doctor.js","test":"node --test","lint":"node --check server.js && node --check engine/ultimate-assistant.js"},
+  "dependencies":{"dotenv":"^16.4.7","playwright":"^1.55.0"}
 }
