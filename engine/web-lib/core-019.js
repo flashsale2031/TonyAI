@@ -1,0 +1,2 @@
+export const core019={clone(value){if(typeof structuredClone==='function')return structuredClone(value);return value===undefined?undefined:JSON.parse(JSON.stringify(value));},freeze(value){return Object.freeze(value);}};
+if(typeof window!=='undefined')window.TONYCore019=core019;
