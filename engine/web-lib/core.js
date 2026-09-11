@@ -1,0 +1,1 @@
+export const core={version:'2.1.0',noop:()=>{},identity:x=>x,compose:(...fns)=>x=>fns.reduceRight((v,f)=>f(v),x),pipe:(x,...fns)=>fns.reduce((v,f)=>f(v),x)};
