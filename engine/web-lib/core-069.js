@@ -1,0 +1,2 @@
+export const core069={type:(v)=>Object.prototype.toString.call(v).slice(8,-1),isArray:Array.isArray,isObject:(v)=>v!==null&&typeof v==='object'&&!Array.isArray(v)};
+if(typeof window!=='undefined')window.TONYCore069=core069;
