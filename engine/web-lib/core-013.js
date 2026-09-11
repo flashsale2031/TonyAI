@@ -1,0 +1,2 @@
+export const core013={map(value,fn){return Array.from(value??[],fn);},filter(value,fn){return Array.from(value??[]).filter(fn);},reduce(value,fn,initial){return Array.from(value??[]).reduce(fn,initial);}};
+if(typeof window!=='undefined')window.TONYCore013=core013;
