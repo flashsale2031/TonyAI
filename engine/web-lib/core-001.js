@@ -1,0 +1,1 @@
+export const core001={name:'core-001',browserNative:true,run:(v)=>v};
