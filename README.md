@@ -1,57 +1,38 @@
-# TONY — Ultimate AI Chat
+# TONY AI
 
-TONY combines the uploaded next-level data-entry assistant stack with the chat UI. The browser stays free of API secrets; the Node server owns the model key and tool orchestration.
+TONY is a browser-first AI workspace with a server runtime for chat, research, browser inspection/action planning, validation, queues, audit logging, recovery, image generation, and downloadable artifacts.
 
-## Included capabilities
+## Functional replication layer
 
-- Conversational LLM responses with structured JSON output
-- Intent grounding and entity extraction
-- Research workflow with source collection
-- Browser DOM/accessibility inspection and visual fallback
-- Conservative task planning and independent plan/outcome verification
-- Deterministic field validation and multi-candidate consensus
-- Survey question classification and sensitive-profile boundaries
-- Security/policy gate for credentials, MFA/CAPTCHA and financial data
-- Persistent task queue with retries
-- Audit trail and outcome memory
-- Recovery state machine
-- Browser worker mode for configured data-entry dashboards
-- Chat API plus capability, queue, audit, memory, inspect, validate, consensus and recovery endpoints
-- AI-generated downloadable text/code/data documents
-- Multi-file artifact generation with one-click downloads
-- Server-generated ZIP archives containing generated files
-- Browser-native download support without requiring a desktop application
+The supplied `next-level-data-entry-ai-assistant` archive was assessed as a collection of functional components rather than treated as a black-box binary. Its observable roles map into TONY as follows:
 
-## File and ZIP generation
+- survey/question classification -> `engine/survey/question-classifier.js`
+- sensitive-data boundary -> `engine/safetyboundaries.js` plus existing policy adapters
+- LLM planning -> `engine/ai/llm.js`, `engine/planner.js`, `engine/verifier.js`
+- browser inspection/actions/visual fallback -> `engine/browser/*`
+- research -> `engine/research/researcher.js` and DuckDuckGo retrieval
+- persistent outcome memory -> `engine/learning/outcome-memory.js`
+- queue/worker/recovery/audit -> `engine/queue/*`, `engine/worker.js`, `engine/recovery/*`, `engine/storage/*`
+- deterministic validation/consensus -> `engine/validation/*`
+- offline language/data/code utilities -> `engine/local-language.js`, `engine/local-data.js`, `engine/local-code.js`, `engine/local-tools.js`
 
-Ask TONY in chat for a file, for example:
+`engine/replicated-engine.js` provides a deterministic functional replica for common calculator, summarization, text utility, code-analysis, and statistics operations. `engine/replica-manifest.js` records the capability chunks and their source modules. The browser bridge routes supported deterministic operations locally, then tries the local WebGPU/WASM model, and finally falls back to `/api/chat`.
 
-- `Create a JSON file containing ...`
-- `Create an HTML, CSS, and JavaScript starter project and give me a ZIP.`
-- `Generate a CSV with ...`
+This is functional replication, not binary/weight reconstruction. The supplied archive does not contain a pretrained model-weight binary; therefore no fabricated binary is committed. Real model weights can be supplied through `engine/model-shards.js`, which downloads, verifies, caches, and reassembles independently hosted shards.
 
-TONY can return structured file artifacts. The server materializes them as browser-downloadable data URLs and automatically creates a ZIP when requested or when multiple files are returned. Artifact requests are capped at 50 files.
+## Local model
 
-The underlying implementation is dependency-free and lives in `engine/file-generator.js`. The API endpoint `POST /api/files` accepts a `files` array and optional `zip`/`zipName`; chat responses can return `files`, `zip`, and `zipName` fields and are materialized automatically.
+TONY can use WebLLM/WebGPU first and Transformers.js/WASM as fallback with SmolLM2-360M-Instruct. Model weights are obtained by the browser runtime and cached locally; they are not embedded in Git as source code.
 
-## Run
+## Server
 
 ```bash
 npm install
-npx playwright install chromium
-cp .env.example .env
-# set OPENAI_API_KEY in .env
 npm start
 ```
 
-Open `http://localhost:3000`.
+Useful endpoints include `/api/chat`, `/api/replica`, `/api/search`, `/api/image`, `/api/files`, `/api/capabilities`, `/api/inspect`, `/api/queue`, `/api/validate`, `/api/consensus`, and `/api/recover`.
 
-## Optional browser automation
+## Safety
 
-Set `DASHBOARD_URL` for the supplied dashboard/task workflow. Keep `AUTO_SUBMIT=false` until the workflow is verified. The policy layer blocks sensitive credential, MFA/CAPTCHA and financial boundaries and can require human review.
-
-Run the persistent worker with:
-
-```bash
-npm run worker
-```
+Essential safeguards remain in place for credentials, authentication factors, payment/banking data, private secrets, and other protected operations. Browser navigation and external actions are controlled by server configuration.
