@@ -1,0 +1,2 @@
+export const core109={base64:(bytes)=>{let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s)},bytes:(s)=>Uint8Array.from(atob(s),c=>c.charCodeAt(0))};
+if(typeof window!=='undefined')window.TONYCore109=core109;
