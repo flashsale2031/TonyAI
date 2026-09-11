@@ -1,0 +1,1 @@
+export const core021={run:(s)=>String(s).trim()};
