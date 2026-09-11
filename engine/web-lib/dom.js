@@ -1,0 +1,1 @@
+export const dom={q:(s,r=document)=>r.querySelector(s),qa:(s,r=document)=>[...r.querySelectorAll(s)],text:e=>(e?.innerText||'').trim(),attr:(e,k)=>e?.getAttribute(k)};
