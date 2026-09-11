@@ -1,0 +1,10 @@
+import 'dotenv/config';
+import { chromium } from 'playwright';
+import { Agent } from './agent.js';
+import { Queue } from './queue/queue.js';
+import { Audit } from './storage/audit.js';
+import { DefaultAdapter } from './adapters/default.js';
+const cfg={dashboardUrl:process.env.DASHBOARD_URL,headless:process.env.HEADLESS==='true',queueFile:process.env.QUEUE_FILE||'./data/assignments.json',auditFile:process.env.AUDIT_FILE||'./data/audit.jsonl',maxAttempts:Number(process.env.MAX_ATTEMPTS||3),autoSubmit:process.env.AUTO_SUBMIT==='true',confidenceThreshold:Number(process.env.CONFIDENCE_THRESHOLD||0.86),taskTimeout:Number(process.env.TASK_TIMEOUT_MS||45000),navigationTimeout:Number(process.env.NAVIGATION_TIMEOUT_MS||30000),pollInterval:Number(process.env.POLL_INTERVAL_MS||5000),researchEnabled:process.env.RESEARCH_ENABLED!=='false',researchMaxSources:Number(process.env.RESEARCH_MAX_SOURCES||4)};
+if(!cfg.dashboardUrl)throw new Error('DASHBOARD_URL is required for worker mode');
+const browser=await chromium.launch({headless:cfg.headless});const context=await browser.newContext();const page=await context.newPage();page.setDefaultTimeout(cfg.taskTimeout);page.setDefaultNavigationTimeout(cfg.navigationTimeout);const agent=new Agent({page,context,queue:new Queue(cfg.queueFile),audit:new Audit(cfg.auditFile),adapter:new DefaultAdapter(cfg),cfg});
+process.on('SIGINT',async()=>{await browser.close();process.exit(0)});process.on('SIGTERM',async()=>{await browser.close();process.exit(0)});await agent.run();
