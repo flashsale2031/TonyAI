@@ -1,0 +1,1 @@
+export const date={now:()=>new Date(),iso:d=>new Date(d).toISOString(),addDays:(d,n)=>new Date(new Date(d).getTime()+n*86400000),format:(d,locale)=>new Intl.DateTimeFormat(locale||undefined,{dateStyle:'medium',timeStyle:'short'}).format(new Date(d))};
