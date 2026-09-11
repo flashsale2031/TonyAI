@@ -1,0 +1,1 @@
+export const api={get:u=>fetch(u),json:u=>fetch(u).then(r=>r.json()),post:(u,b)=>fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)})};
