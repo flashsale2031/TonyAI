@@ -1,0 +1,1 @@
+export const core008={name:'core-008',browserNative:true,run:(v)=>JSON.stringify(v)};
