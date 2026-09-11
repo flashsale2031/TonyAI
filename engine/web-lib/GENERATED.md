@@ -1,0 +1,1 @@
+The capability inventory is generated as native ESM modules. No npm package is required by the browser runtime.
