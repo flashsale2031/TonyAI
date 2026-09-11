@@ -1,0 +1,1 @@
+export const core101={run:(el,k,v)=>el?.style?.setProperty(k,v)};
