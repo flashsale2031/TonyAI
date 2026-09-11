@@ -1,6 +1,6 @@
 # TonyAI brand assets
 
-The TonyAI mark combines a friendly central spark with connected nodes to communicate helpful intelligence and collaboration.
+The TonyAI mark combines a friendly dark-skinned humanoid robot with connected nodes to communicate helpful intelligence, approachability, and collaboration. The character is rendered as a clean, non-photorealistic vector-style bust so the mark remains legible across product surfaces.
 
 ## Files
 
