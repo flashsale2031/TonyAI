@@ -1,0 +1,1 @@
+export const core006={name:'core-006',browserNative:true,run:(v)=>v==null?[]:Object.keys(Object(v))};
