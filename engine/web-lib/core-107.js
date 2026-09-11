@@ -1,0 +1,2 @@
+export const core107={link:(href)=>{const a=document.createElement('a');a.href=href;a.rel='noopener';return a},open:(href)=>window.open(href,'_blank','noopener')};
+if(typeof window!=='undefined')window.TONYCore107=core107;
