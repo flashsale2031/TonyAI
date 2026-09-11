@@ -1,0 +1,2 @@
+export const core067={group:(v,fn)=>Array.from(v??[]).reduce((m,x)=>{const k=fn(x);(m[k]??=[]).push(x);return m},{}),count:(v)=>Array.from(v??[]).length};
+if(typeof window!=='undefined')window.TONYCore067=core067;
