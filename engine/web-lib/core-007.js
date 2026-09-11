@@ -1,0 +1,1 @@
+export const core007={name:'core-007',browserNative:true,run:(v)=>Object.values(Object(v))};
