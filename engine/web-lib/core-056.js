@@ -1,0 +1,2 @@
+export const core056={debounce:(fn,ms=200)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}},throttle:(fn,ms=200)=>{let ok=true;return(...a)=>{if(!ok)return;ok=false;fn(...a);setTimeout(()=>ok=true,ms)}}};
+if(typeof window!=='undefined')window.TONYCore056=core056;
