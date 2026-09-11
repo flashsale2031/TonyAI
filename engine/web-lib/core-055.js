@@ -1,0 +1,2 @@
+export const core055={clamp:(v,min=0,max=1)=>Math.min(max,Math.max(min,Number(v)||0)),round:(v,n=0)=>{const p=10**n;return Math.round(Number(v)*p)/p}};
+if(typeof window!=='undefined')window.TONYCore055=core055;
