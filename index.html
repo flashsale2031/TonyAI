@@ -588,14 +588,44 @@
         }
       });
 
-      composer.addEventListener('submit', (event) => {
+      function localAnswer(question) {
+        const text = question.trim();
+        const lower = text.toLowerCase();
+        const expression = text.replace(/[^0-9+\-*/().%\s]/g, '').trim();
+        if (expression && /[+\-*/%]/.test(expression) && /^[-+*/%().\d\s]+$/.test(expression)) {
+          try {
+            const result = Function('"use strict"; return (' + expression + ')')();
+            if (typeof result === 'number' && Number.isFinite(result)) return 'The answer is ' + result + '.';
+          } catch (_) {}
+        }
+        if (/^(hi|hello|hey|yo)\b/i.test(text)) return 'Hello — I’m TONY. I’m ready to help. Ask me a question or paste text to work with.';
+        if (/\b(who are you|what can you do|help)\b/i.test(lower)) return 'I’m TONY, your local chat assistant. I can answer basic questions, brainstorm, rewrite text, summarize text you paste, and work through calculations. Live research requires an API connection.';
+        if (text.endsWith('?')) return 'I can help reason through that, but this browser-only version has no live web or AI API access. Paste any relevant context here and I’ll work with it.\n\nYour question: ' + text;
+        return 'I’m ready to help. I received: “' + text + '”\n\nAsk a question, request a rewrite, paste text to summarize, or give me a calculation.';
+      }
+      async function answerQuestion(text) {
+        try {
+          const response = await fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: [{ role: 'user', content: text }] }) });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.reply) return data.reply;
+          }
+        } catch (_) {}
+        return localAnswer(text);
+      }
+      composer.addEventListener('submit', async (event) => {
         event.preventDefault();
+        event.stopImmediatePropagation();
         const text = input.value.trim();
         if (!text) return;
         addMessage(text, 'user');
         input.value = '';
         autoSize();
-        setTimeout(() => addMessage('TONY is ready for your next instruction.', 'assistant'), 260);
+        sendButton.disabled = true;
+        const response = await answerQuestion(text);
+        addMessage(response, 'assistant');
+        sendButton.disabled = false;
+        input.focus();
       });
 
       attachButton.addEventListener('click', () => fileInput.click());
