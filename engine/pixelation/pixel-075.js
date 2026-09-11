@@ -1,0 +1,3 @@
+/* Pixel 075 — indexed pixel buffer with palette rendering and sampling. */
+export function indexedBuffer(width,height,palette=[]){const pixels=new Uint8Array(width*height);return {width,height,palette,pixels,set(x,y,i){if(x>=0&&y>=0&&x<width&&y<height)pixels[y*width+x]=i},get(x,y){return x>=0&&y>=0&&x<width&&y<height?pixels[y*width+x]:0},render(ctx){const img=ctx.createImageData(width,height);for(let i=0;i<pixels.length;i++){const c=palette[pixels[i]]||[0,0,0,255];img.data.set([c[0],c[1],c[2],c[3]??255],i*4);}ctx.putImageData(img,0,0);}};}
+if(typeof window!=='undefined')window.TONYPixel075={indexedBuffer};
