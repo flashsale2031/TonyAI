@@ -1,0 +1,2 @@
+export const core073={observe:(el,fn,opt)=>{const o=new MutationObserver(fn);o.observe(el,opt);return o},resize:(el,fn)=>{const o=new ResizeObserver(fn);o.observe(el);return o}};
+if(typeof window!=='undefined')window.TONYCore073=core073;
