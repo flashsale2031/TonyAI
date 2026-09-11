@@ -1,0 +1,2 @@
+export const core020={debounce(fn,wait=250){let t;return (...args)=>{clearTimeout(t);t=setTimeout(()=>fn(...args),wait);};},throttle(fn,wait=250){let last=0;return (...args)=>{const now=Date.now();if(now-last>=wait){last=now;return fn(...args);}};}};
+if(typeof window!=='undefined')window.TONYCore020=core020;
