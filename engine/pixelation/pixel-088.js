@@ -1,0 +1,3 @@
+/* Pixel 088 — symmetry painter for horizontal, vertical, or radial mirroring. */
+export function symmetryPaint(ctx,draw,{cx=0,cy=0,mode='both',radius=0}={}){ctx.save();if(mode==='vertical'||mode==='both'){ctx.save();ctx.translate(cx*2,0);ctx.scale(-1,1);draw(ctx);ctx.restore();}if(mode==='horizontal'||mode==='both'){ctx.save();ctx.translate(0,cy*2);ctx.scale(1,-1);draw(ctx);ctx.restore();}if(radius){for(let i=1;i<4;i++){ctx.save();ctx.translate(cx,cy);ctx.rotate(i*Math.PI/2);ctx.translate(-cx,-cy);draw(ctx);ctx.restore();}}ctx.restore();}
+if(typeof window!=='undefined')window.TONYPixel088={symmetryPaint};
