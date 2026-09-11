@@ -1,7 +1,7 @@
 // Tony NeuralLM: compact trainable neural language model for local JS inference.
-// It uses real learned floating-point weights, a vocabulary, embeddings, a
-// two-token context window, tanh hidden layer, and softmax output. It is a
-// small educational/local model, not a frontier-scale transformer.
+// Uses real learned floating-point weights: token embeddings, a tanh hidden layer,
+// and a softmax next-token head. This is intentionally small; it is not a frontier
+// transformer and does not claim frontier-level intelligence.
 import {NEURAL_TRAINING_TEXT} from './neural-training-data.js';
 
 const TOKEN=/[a-zA-Z0-9']+|[.,!?;:]/g;
@@ -11,26 +11,20 @@ const tokenize=s=>String(s||'').toLowerCase().match(TOKEN)||[];
 
 export class NeuralLanguageModel{
   constructor({embeddingSize=32,hiddenSize=64,seed='tony-neural',epochs=18,learningRate=.035}={}){
-    this.embeddingSize=embeddingSize; this.hiddenSize=hiddenSize; this.seed=hash(seed);
-    this.epochs=epochs; this.learningRate=learningRate; this.trained=false;
-    this.vocab=['<unk>','<eos>']; this.index=new Map([['<unk>',0],['<eos>',1]]);
-    this.E=null; this.W1=null; this.b1=null; this.W2=null; this.b2=null;
+    this.embeddingSize=embeddingSize;this.hiddenSize=hiddenSize;this.seed=typeof seed==='number'?seed>>>0:hash(seed);this.epochs=epochs;this.learningRate=learningRate;this.trained=false;
+    this.vocab=['<unk>','<eos>'];this.index=new Map([['<unk>',0],['<eos>',1]]);this.E=null;this.W1=null;this.b1=null;this.W2=null;this.b2=null;
   }
   random(){this.seed=(Math.imul(1664525,this.seed)+1013904223)>>>0;return this.seed/4294967296;}
   buildVocabulary(text){for(const t of tokenize(text))if(!this.index.has(t)){this.index.set(t,this.vocab.length);this.vocab.push(t);}}
-  init(){const V=this.vocab.length,D=this.embeddingSize,H=this.hiddenSize;const r=()=> (this.random()-.5)*.16;this.E=Array.from({length:V},()=>Array.from({length:D},r));this.W1=Array.from({length:D*2},()=>Array.from({length:H},r));this.b1=Array(H).fill(0);this.W2=Array.from({length:H},()=>Array.from({length:V},r));this.b2=Array(V).fill(0);}
+  init(){const V=this.vocab.length,D=this.embeddingSize,H=this.hiddenSize,r=()=> (this.random()-.5)*.16;this.E=Array.from({length:V},()=>Array.from({length:D},r));this.W1=Array.from({length:D*2},()=>Array.from({length:H},r));this.b1=Array(H).fill(0);this.W2=Array.from({length:H},()=>Array.from({length:V},r));this.b2=Array(V).fill(0);}
   vector(id){return this.E[id]||this.E[0];}
-  forward(a,b){const D=this.embeddingSize,H=this.hiddenSize,V=this.vocab.length;const x=[...this.vector(a),...this.vector(b)],h=new Array(H);for(let j=0;j<H;j++){let z=this.b1[j];for(let i=0;i<D*2;i++)z+=x[i]*this.W1[i][j];h[j]=Math.tanh(z);}const z=new Array(V);let mx=-Infinity;for(let k=0;k<V;k++){let v=this.b2[k];for(let j=0;j<H;j++)v+=h[j]*this.W2[j][k];z[k]=v;if(v>mx)mx=v;}let sum=0;for(let k=0;k<V;k++){z[k]=Math.exp(clamp(z[k]-mx,-20,20));sum+=z[k];}for(let k=0;k<V;k++)z[k]/=sum;return{x,h,p:z};}
-  train(text=NEURAL_TRAINING_TEXT,{epochs=this.epochs,learningRate=this.learningRate}={}){this.buildVocabulary(text);this.init();const seq=tokenize(text).map(t=>this.index.get(t)||0).concat(1);const pairs=[];for(let i=2;i<seq.length;i++)pairs.push([seq[i-2],seq[i-1],seq[i]]);for(let e=0;e<Math.max(1,epochs);e++){for(const [a,b,y] of pairs){const f=this.forward(a,b),{x,h,p}=f;const dz=p.slice();dz[y]-=1;const dx=new Array(x.length).fill(0),dh=new Array(this.hiddenSize).fill(0);for(let j=0;j<this.hiddenSize;j++){let g=0;for(let k=0;k<this.vocab.length;k++){g+=dz[k]*this.W2[j][k];this.W2[j][k]-=learningRate*h[j]*dz[k];}this.b2[j<this.b2.length?j:0]+=0;}for(let j=0;j<this.hiddenSize;j++){let g=0;for(let k=0;k<this.vocab.length;k++)g+=dz[k]*this.W2[j][k];dh[j]=g*(1-h[j]*h[j]);}
-        for(let i=0;i<x.length;i++){let g=0;for(let j=0;j<this.hiddenSize;j++)g+=this.W1[i][j]*dh[j];dx[i]=g;for(let j=0;j<this.hiddenSize;j++)this.W1[i][j]-=learningRate*x[i]*dh[j];}
-        for(let j=0;j<this.hiddenSize;j++)this.b1[j]-=learningRate*dh[j];
-        for(let i=0;i<this.embeddingSize;i++)this.E[a][i]-=learningRate*dx[i];
-        for(let i=0;i<this.embeddingSize;i++)this.E[b][i]-=learningRate*dx[this.embeddingSize+i];
-      }}this.trained=true;return this.stats();}
-  next(context,{temperature=.75,topK=12,repetitionPenalty=1.7}={}){if(!this.trained)return[];const t=tokenize(context),a=this.index.get(t.at(-2))??0,b=this.index.get(t.at(-1))??0,f=this.forward(a,b),recent=new Set(t.slice(-8)),items=[];for(let k=0;k<this.vocab.length;k++){const w=this.vocab[k];if(w==='<unk>')continue;let score=Math.log(Math.max(f.p[k],1e-9));if(recent.has(w))score-=Math.log(repetitionPenalty);items.push({token:w,score});}items.sort((a,b)=>b.score-a.score);const top=items.slice(0,Math.max(1,topK)),temp=Math.max(.15,temperature),weights=top.map(x=>Math.exp(clamp(x.score/top[0].score?x.score: x.score,-20,4)/temp));return top.map((x,i)=>({...x,weight:weights[i]}));}
+  forward(a,b){const D=this.embeddingSize,H=this.hiddenSize,V=this.vocab.length,x=[...this.vector(a),...this.vector(b)],h=Array(H);for(let j=0;j<H;j++){let z=this.b1[j];for(let i=0;i<D*2;i++)z+=x[i]*this.W1[i][j];h[j]=Math.tanh(z);}const z=Array(V);let mx=-Infinity;for(let k=0;k<V;k++){let v=this.b2[k];for(let j=0;j<H;j++)v+=h[j]*this.W2[j][k];z[k]=v;if(v>mx)mx=v;}let sum=0;for(let k=0;k<V;k++){z[k]=Math.exp(clamp(z[k]-mx,-20,20));sum+=z[k];}for(let k=0;k<V;k++)z[k]/=sum;return{x,h,p:z};}
+  train(text=NEURAL_TRAINING_TEXT,{epochs=this.epochs,learningRate=this.learningRate}={}){this.buildVocabulary(text);this.init();const seq=tokenize(text).map(t=>this.index.get(t)??0).concat(1),pairs=[];for(let i=2;i<seq.length;i++)pairs.push([seq[i-2],seq[i-1],seq[i]]);for(let e=0;e<Math.max(1,epochs);e++)for(const [a,b,y] of pairs){const {x,h,p}=this.forward(a,b),dz=p.slice();dz[y]-=1;const dh=Array(this.hiddenSize).fill(0),dx=Array(x.length).fill(0);for(let j=0;j<this.hiddenSize;j++){for(let k=0;k<this.vocab.length;k++){dh[j]+=dz[k]*this.W2[j][k];this.W2[j][k]-=learningRate*h[j]*dz[k];}this.b2[j%this.vocab.length]-=0;}for(let j=0;j<this.hiddenSize;j++)dh[j]*=(1-h[j]*h[j]);for(let i=0;i<x.length;i++){for(let j=0;j<this.hiddenSize;j++){dx[i]+=this.W1[i][j]*dh[j];this.W1[i][j]-=learningRate*x[i]*dh[j];}}for(let j=0;j<this.hiddenSize;j++)this.b1[j]-=learningRate*dh[j];for(let i=0;i<this.embeddingSize;i++){this.E[a][i]-=learningRate*dx[i];this.E[b][i]-=learningRate*dx[this.embeddingSize+i];}}this.trained=true;return this.stats();}
+  probabilities(context){if(!this.trained)return null;const t=tokenize(context),a=this.index.get(t.at(-2))??0,b=this.index.get(t.at(-1))??0;return this.forward(a,b).p;}
+  next(context,{temperature=.75,topK=12,repetitionPenalty=1.7}={}){const p=this.probabilities(context);if(!p)return[];const recent=new Set(tokenize(context).slice(-8)),items=[];for(let k=0;k<this.vocab.length;k++){const w=this.vocab[k];if(w==='<unk>')continue;let score=Math.log(Math.max(p[k],1e-12));if(recent.has(w))score-=Math.log(repetitionPenalty);items.push({token:w,score});}items.sort((a,b)=>b.score-a.score);const top=items.slice(0,Math.max(1,topK)),temp=Math.max(.15,temperature),mx=top[0].score,weights=top.map(x=>Math.exp(clamp((x.score-mx)/temp,-18,6)));return top.map((x,i)=>({...x,weight:weights[i]}));}
   sample(context,options={}){const a=this.next(context,options);if(!a.length)return null;let total=a.reduce((s,x)=>s+x.weight,0),r=this.random()*total;for(const x of a){r-=x.weight;if(r<=0)return x.token;}return a.at(-1).token;}
   generate(prompt,{maxTokens=96,temperature=.75,topK=12,repetitionPenalty=1.7}={}){let out=String(prompt||'').trim();for(let i=0;i<maxTokens;i++){const w=this.sample(out,{temperature,topK,repetitionPenalty});if(!w||w==='<eos>')break;out+=/^[.,!?;:]$/.test(w)?w:` ${w}`;if(i>8&&/[.!?]$/.test(w))break;}return out;}
-  perplexity(text){if(!this.trained)return Infinity;const t=tokenize(text).map(x=>this.index.get(x)||0);if(t.length<3)return 0;let loss=0,n=0;for(let i=2;i<t.length;i++){const p=this.forward(t[i-2],t[i-1]).p[y=t[i]];loss-=Math.log(Math.max(p,1e-9));n++;}return Math.exp(loss/n);}
+  perplexity(text){if(!this.trained)return Infinity;const t=tokenize(text).map(x=>this.index.get(x)??0);if(t.length<3)return 0;let loss=0,n=0;for(let i=2;i<t.length;i++){const p=this.forward(t[i-2],t[i-1]).p[t[i]];loss-=Math.log(Math.max(p,1e-12));n++;}return Math.exp(loss/n);}
   stats(){return{architecture:'compact-neural-mlp-language-model',trained:this.trained,vocabulary:this.vocab.length,embeddingSize:this.embeddingSize,hiddenSize:this.hiddenSize,parameters:this.trained?(this.vocab.length*this.embeddingSize+this.embeddingSize*2*this.hiddenSize+this.hiddenSize*this.vocab.length+this.hiddenSize+this.vocab.length):0,epochs:this.epochs};}
   toJSON(){return{...this.stats(),seed:this.seed,learningRate:this.learningRate,vocab:this.vocab,E:this.E,W1:this.W1,b1:this.b1,W2:this.W2,b2:this.b2};}
   static fromJSON(x){const m=new NeuralLanguageModel(x);m.seed=x.seed;m.vocab=x.vocab;m.index=new Map(m.vocab.map((v,i)=>[v,i]));m.E=x.E;m.W1=x.W1;m.b1=x.b1;m.W2=x.W2;m.b2=x.b2;m.trained=true;return m;}
