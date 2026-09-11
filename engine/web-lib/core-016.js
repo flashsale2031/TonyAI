@@ -1,0 +1,2 @@
+export const core016={chunk(value,size=1){const a=Array.from(value??[]),out=[];for(let i=0;i<a.length;i+=Math.max(1,size))out.push(a.slice(i,i+Math.max(1,size)));return out;},flatten(value){return Array.from(value??[]).flat(Infinity);}};
+if(typeof window!=='undefined')window.TONYCore016=core016;
