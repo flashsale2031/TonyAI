@@ -1,0 +1,1 @@
+export const core011={run:(a,b)=>a+b};
