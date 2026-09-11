@@ -1,0 +1,2 @@
+export const core014={first(value){return value?.[0];},last(value){return value?.[value.length-1];},compact(value){return Array.from(value??[]).filter(Boolean);}};
+if(typeof window!=='undefined')window.TONYCore014=core014;
