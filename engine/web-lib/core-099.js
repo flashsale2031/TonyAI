@@ -1,0 +1,2 @@
+export const core099={downloadText:(text,name='download.txt')=>{const b=new Blob([text],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click()}};
+if(typeof window!=='undefined')window.TONYCore099=core099;
