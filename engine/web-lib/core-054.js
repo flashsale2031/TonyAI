@@ -1,0 +1,2 @@
+export const core054={sum:(v)=>Array.from(v??[]).reduce((a,x)=>a+Number(x||0),0),avg:(v)=>{const a=Array.from(v??[]).map(Number);return a.length?core054.sum(a)/a.length:0}};
+if(typeof window!=='undefined')window.TONYCore054=core054;
