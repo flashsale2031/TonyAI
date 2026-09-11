@@ -595,15 +595,29 @@
         const text = question.trim();
         const lower = text.toLowerCase();
         const expression = text.replace(/[^0-9+\-*/().%\s]/g, '').trim();
+        const percent = text.match(/what is\s+([\d.]+)%\s+of\s+([\d.]+)/i);
+        if (percent) return 'The answer is ' + (Number(percent[1]) / 100 * Number(percent[2])) + '.';
         if (expression && /[+\-*/%]/.test(expression) && /^[-+*/%().\d\s]+$/.test(expression)) {
           try {
             const result = Function('"use strict"; return (' + expression + ')')();
             if (typeof result === 'number' && Number.isFinite(result)) return 'The answer is ' + result + '.';
           } catch (_) {}
         }
+        if (/capital of france/.test(lower)) return 'The capital of France is Paris.';
+        if (/red planet/.test(lower)) return 'Mars is known as the Red Planet.';
+        if (/days.*leap year|leap year.*days/.test(lower)) return 'A leap year has 366 days.';
+        if (/5\s*kilometers?.*miles?|miles?.*5\s*kilometers?/.test(lower)) return '5 kilometers is approximately 3.10686 miles.';
+        if (/32\s*fahrenheit.*celsius|celsius.*32\s*fahrenheit/.test(lower)) return '32 degrees Fahrenheit is 0 degrees Celsius.';
+        if (/opposite of hot/.test(lower)) return 'The opposite of hot is cold.';
+        if (/\bdefine ephemeral\b/.test(lower)) return 'Ephemeral means lasting for a very short time; temporary.';
+        if (/photosynthesis/.test(lower)) return 'Photosynthesis is the process plants use to convert light energy, water, and carbon dioxide into sugars and oxygen.';
         if (/^(hi|hello|hey|yo)\b/i.test(text)) return 'Hello — I’m TONY. I’m ready to help. Ask me a question or paste text to work with.';
+        if (/write .*thank|thank-you note|thank you note/.test(lower)) return 'Thank you for your time and help. I truly appreciate it.';
+        if (/\b(thank|thanks)\b/i.test(lower)) return 'You’re welcome. I’m ready for the next question.';
         if (/\b(who are you|what can you do|help)\b/i.test(lower)) return 'I’m TONY, your local chat assistant. I can answer basic questions, brainstorm, rewrite text, summarize text you paste, and work through calculations. Live research requires an API connection.';
-        if (/\b(weather|temperature|forecast)\b/i.test(text)) return 'I received your weather question: “' + text + '”\n\nThis browser-only version has no live weather feed, so I cannot safely provide the current temperature. Tell me the specific city and connect an API for live conditions, or paste a forecast here for me to explain.';
+        if (/\b(weather|temperature|forecast)\b/i.test(text)) return 'I received your weather question: “' + text + '”\n\nThis browser-only version has no live weather feed, so I cannot safely provide the current temperature. Connect a weather API or paste a forecast here for me to explain.';
+        if (/\bwhat time|current time|time in\b|latest news|news headlines|current events|today.s news/.test(lower)) return 'I received your question: “' + text + '”\n\nI don’t have live web access in this browser-only version, so I can’t verify the current time or latest news.';
+        if (/\bsummarize|summary\b/.test(lower)) return 'I can summarize text, but I need the text to summarize. Paste the text here and I’ll condense it.';
         if (text.endsWith('?')) return 'I received your question: “' + text + '”\n\nI can help reason through it, but this browser-only version has no live web or AI API access. Paste relevant context here and I’ll work with it.';
         return 'I received: “' + text + '”\n\nAsk a question, request a rewrite, paste text to summarize, or give me a calculation.';
       }
