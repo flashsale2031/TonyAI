@@ -1,0 +1,2 @@
+export const core022={isArray:Array.isArray,isObject(v){return v!==null&&typeof v==='object'&&!Array.isArray(v);},isString(v){return typeof v==='string';},isNumber(v){return typeof v==='number'&&!Number.isNaN(v);},isFunction(v){return typeof v==='function';}};
+if(typeof window!=='undefined')window.TONYCore022=core022;
