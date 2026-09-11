@@ -1,0 +1,1 @@
+export const core012={name:'core-012',run:(v)=>v?.length??0};
