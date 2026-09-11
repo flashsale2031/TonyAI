@@ -1,0 +1,2 @@
+export const core079={notify:(title,body)=>Notification?.requestPermission().then(p=>p==='granted'&&new Notification(title,{body})),speech:(v)=>speechSynthesis?.speak(new SpeechSynthesisUtterance(String(v)))};
+if(typeof window!=='undefined')window.TONYCore079=core079;
