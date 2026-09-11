@@ -1,0 +1,1 @@
+export const webCapabilities={dom:true,forms:true,files:true,clipboard:true,storage:true,network:true,navigation:true,events:true,animation:true,accessibility:true,data:true,math:true,media:true,workers:true,streams:true,canvas:true,websockets:true,notifications:true,printing:true};
