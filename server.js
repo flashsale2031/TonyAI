@@ -4,12 +4,13 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { UltimateAssistant } from './engine/ultimate-assistant.js';
+import { generateArtifacts } from './engine/file-generator.js';
 
 const root=path.dirname(fileURLToPath(import.meta.url));
 const port=Number(process.env.PORT||3000);
 const assistant=new UltimateAssistant();
 const json=(res,status,body)=>{res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});res.end(JSON.stringify(body));};
-async function body(req){let s='';for await(const c of req)s+=c;if(!s)return {};return JSON.parse(s);}
+async function body(req){let s='';for await(const c of req)s+=c;if(!s)return {};if(s.length>20_000_000)throw new Error('Request body too large');return JSON.parse(s);}
 async function generateImage(input){
   const key=process.env.OPENAI_API_KEY;if(!key)throw new Error('OPENAI_API_KEY is required for image generation');
   const base=(process.env.OPENAI_BASE_URL||'https://api.openai.com/v1').replace(/\/$/,'');
@@ -23,7 +24,10 @@ async function handler(req,res){
   try{
     if(req.method==='POST'&&req.url==='/api/chat')return json(res,200,await assistant.chat(await body(req)));
     if(req.method==='POST'&&req.url==='/api/image')return json(res,200,await generateImage(await body(req)));
-    if(req.method==='GET'&&req.url==='/api/capabilities')return json(res,200,{...assistant.capabilities(),webRuntime:true,runtimeVersion:'2.0.0',imageGeneration:true});
+    if(req.method==='POST'&&req.url==='/api/files'){
+      const b=await body(req);const files=Array.isArray(b.files)?b.files:[];if(!files.length)return json(res,400,{error:'files array is required'});if(files.length>50)return json(res,400,{error:'Maximum 50 files per artifact request'});return json(res,200,generateArtifacts({files,zip:b.zip===true,zipName:b.zipName||'tony-downloads.zip'}));
+    }
+    if(req.method==='GET'&&req.url==='/api/capabilities')return json(res,200,{...assistant.capabilities(),webRuntime:true,runtimeVersion:'2.0.0',imageGeneration:true,fileGeneration:true,zipGeneration:true,maxArtifactFiles:50});
     if(req.method==='GET'&&req.url==='/api/queue')return json(res,200,await assistant.queueStatus());
     if(req.method==='GET'&&req.url==='/api/audit')return json(res,200,await assistant.auditTail());
     if(req.method==='GET'&&req.url.startsWith('/api/memory'))return json(res,200,await assistant.memoryHints(new URL(req.url,'http://localhost').searchParams.get('domain')||''));
@@ -34,7 +38,7 @@ async function handler(req,res){
     if(req.method==='POST'&&req.url==='/api/recover'){const b=await body(req);if(!b.url)return json(res,400,{error:'url is required'});return json(res,200,await assistant.recover(b.url));}
     if(req.method==='GET'&&req.url==='/runtime.js'){const js=await readFile(path.join(root,'engine','web-runtime.js'),'utf8');res.writeHead(200,{'content-type':'text/javascript; charset=utf-8','cache-control':'public, max-age=3600'});return res.end(js);}
     if(req.method==='GET'&&(req.url==='/'||req.url==='/index.html')){const html=await readFile(path.join(root,'index.html'),'utf8');const runtime=await readFile(path.join(root,'engine','web-runtime.js'),'utf8');const image=await readFile(path.join(root,'engine','image-chat.js'),'utf8');const client=await readFile(path.join(root,'engine','chat-client.js'),'utf8');const injected=`<script>${runtime}</script><script>${image}</script><script>${client}</script>`;res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});return res.end(html.replace('</body>',`${injected}</body>`));}
-    if(req.method==='GET'&&req.url==='/health')return json(res,200,{ok:true,service:'TONY',version:'2.1.0',capabilities:{...assistant.capabilities(),webRuntime:true,runtimeVersion:'2.0.0',imageGeneration:true}});
+    if(req.method==='GET'&&req.url==='/health')return json(res,200,{ok:true,service:'TONY',version:'2.2.0',capabilities:{...assistant.capabilities(),webRuntime:true,runtimeVersion:'2.0.0',imageGeneration:true,fileGeneration:true,zipGeneration:true}});
     return json(res,404,{error:'Not found'});
   }catch(e){return json(res,500,{error:String(e.message||e)});}
 }
