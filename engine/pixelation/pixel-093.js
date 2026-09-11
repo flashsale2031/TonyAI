@@ -1,0 +1,3 @@
+/* Pixel 093 — recursive fractal tree with depth-based branch scaling. */
+export function fractalTree(ctx,x,y,length=28,depth=5,angle=-Math.PI/2,spread=.55){if(depth<=0){ctx.fillRect(Math.round(x),Math.round(y),2,2);return;}const ex=Math.round(x+Math.cos(angle)*length),ey=Math.round(y+Math.sin(angle)*length);ctx.fillRect(Math.min(x,ex),Math.min(y,ey),Math.max(1,Math.abs(ex-x)+1),Math.max(1,Math.abs(ey-y)+1));fractalTree(ctx,ex,ey,length*.68,depth-1,angle-spread,spread);fractalTree(ctx,ex,ey,length*.68,depth-1,angle+spread,spread);}
+if(typeof window!=='undefined')window.TONYPixel093={fractalTree};
