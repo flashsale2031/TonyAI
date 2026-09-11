@@ -1,0 +1,1 @@
+export const zeroDependencies=Object.freeze({runtime:'Web Platform',packages:[],node:false,cdn:false});
