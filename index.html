@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#0B1F4D">
   <link rel="icon" href="branding/favicon.ico">
   <link rel="icon" type="image/png" sizes="192x192" href="branding/tonyai-favicon.png">
@@ -600,8 +603,9 @@
         }
         if (/^(hi|hello|hey|yo)\b/i.test(text)) return 'Hello — I’m TONY. I’m ready to help. Ask me a question or paste text to work with.';
         if (/\b(who are you|what can you do|help)\b/i.test(lower)) return 'I’m TONY, your local chat assistant. I can answer basic questions, brainstorm, rewrite text, summarize text you paste, and work through calculations. Live research requires an API connection.';
-        if (text.endsWith('?')) return 'I can help reason through that, but this browser-only version has no live web or AI API access. Paste any relevant context here and I’ll work with it.\n\nYour question: ' + text;
-        return 'I’m ready to help. I received: “' + text + '”\n\nAsk a question, request a rewrite, paste text to summarize, or give me a calculation.';
+        if (/\b(weather|temperature|forecast)\b/i.test(text)) return 'I received your weather question: “' + text + '”\n\nThis browser-only version has no live weather feed, so I cannot safely provide the current temperature. Tell me the specific city and connect an API for live conditions, or paste a forecast here for me to explain.';
+        if (text.endsWith('?')) return 'I received your question: “' + text + '”\n\nI can help reason through it, but this browser-only version has no live web or AI API access. Paste relevant context here and I’ll work with it.';
+        return 'I received: “' + text + '”\n\nAsk a question, request a rewrite, paste text to summarize, or give me a calculation.';
       }
       async function answerQuestion(text) {
         try {
