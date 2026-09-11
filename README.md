@@ -17,6 +17,22 @@ TONY combines the uploaded next-level data-entry assistant stack with the chat U
 - Recovery state machine
 - Browser worker mode for configured data-entry dashboards
 - Chat API plus capability, queue, audit, memory, inspect, validate, consensus and recovery endpoints
+- AI-generated downloadable text/code/data documents
+- Multi-file artifact generation with one-click downloads
+- Server-generated ZIP archives containing generated files
+- Browser-native download support without requiring a desktop application
+
+## File and ZIP generation
+
+Ask TONY in chat for a file, for example:
+
+- `Create a JSON file containing ...`
+- `Create an HTML, CSS, and JavaScript starter project and give me a ZIP.`
+- `Generate a CSV with ...`
+
+TONY can return structured file artifacts. The server materializes them as browser-downloadable data URLs and automatically creates a ZIP when requested or when multiple files are returned. Artifact requests are capped at 50 files.
+
+The underlying implementation is dependency-free and lives in `engine/file-generator.js`. The API endpoint `POST /api/files` accepts a `files` array and optional `zip`/`zipName`; chat responses can return `files`, `zip`, and `zipName` fields and are materialized automatically.
 
 ## Run
 
@@ -39,7 +55,3 @@ Run the persistent worker with:
 ```bash
 npm run worker
 ```
-
-## Important
-
-The ultimate engine requires a server runtime. Do not expose `OPENAI_API_KEY` in frontend JavaScript or static-only hosting.
