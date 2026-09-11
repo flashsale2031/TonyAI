@@ -1,0 +1,1 @@
+export async function loadWebModule(name){if(!/^[a-z0-9-]+$/.test(name))throw new Error('Invalid web module name');return import(`./${name}.js`)};export async function loadMany(names){return Promise.all(names.map(loadWebModule));}
