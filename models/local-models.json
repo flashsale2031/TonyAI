@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "purpose": "Local natural-language generation without an OpenAI API key",
+  "models": {
+    "webgpu": {
+      "runtime": "WebLLM",
+      "model": "SmolLM2-360M-Instruct-q4f16_1-MLC",
+      "source": "https://huggingface.co/mlc-ai/SmolLM2-360M-Instruct-q4f16_1-MLC",
+      "quantization": "q4f16_1",
+      "hardware": "WebGPU",
+      "cache": "Browser Cache API / WebLLM cache"
+    },
+    "wasm": {
+      "runtime": "Transformers.js",
+      "model": "onnx-community/SmolLM2-360M-Instruct-ONNX",
+      "source": "https://huggingface.co/onnx-community/SmolLM2-360M-Instruct-ONNX",
+      "quantization": "q4",
+      "hardware": "WASM/CPU",
+      "cache": "Transformers.js browser cache"
+    }
+  },
+  "policy": "Model weights are fetched at first use and cached locally; they are not checked into Git because model binaries are hundreds of megabytes."
+}
