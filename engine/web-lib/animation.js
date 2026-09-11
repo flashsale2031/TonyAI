@@ -1,0 +1,1 @@
+export const animation={animate:(e,k,o)=>e?.animate(k,o),fadeIn:e=>{e?.animate([{opacity:0},{opacity:1}],{duration:180,fill:'forwards'})},fadeOut:e=>{e?.animate([{opacity:1},{opacity:0}],{duration:180,fill:'forwards'})}};
