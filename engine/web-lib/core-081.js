@@ -1,0 +1,1 @@
+export const core081={run:(el,k)=>getComputedStyle(el).getPropertyValue(k)};
