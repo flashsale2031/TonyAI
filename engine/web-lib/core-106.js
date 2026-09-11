@@ -1,0 +1,2 @@
+export const core106={keydown:(el,key)=>el?.dispatchEvent?.(new KeyboardEvent('keydown',{key,bubbles:true})),input:(el)=>el?.dispatchEvent?.(new Event('input',{bubbles:true}))};
+if(typeof window!=='undefined')window.TONYCore106=core106;
