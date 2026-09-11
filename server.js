@@ -13,7 +13,7 @@ async function body(req){let s='';for await(const c of req)s+=c;if(!s)return {};
 async function handler(req,res){
   try{
     if(req.method==='POST'&&req.url==='/api/chat')return json(res,200,await assistant.chat(await body(req)));
-    if(req.method==='GET'&&req.url==='/api/capabilities')return json(res,200,assistant.capabilities());
+    if(req.method==='GET'&&req.url==='/api/capabilities')return json(res,200,{...assistant.capabilities(),webRuntime:true,runtimeVersion:'2.0.0'});
     if(req.method==='GET'&&req.url==='/api/queue')return json(res,200,await assistant.queueStatus());
     if(req.method==='GET'&&req.url==='/api/audit')return json(res,200,await assistant.auditTail());
     if(req.method==='GET'&&req.url.startsWith('/api/memory'))return json(res,200,await assistant.memoryHints(new URL(req.url,'http://localhost').searchParams.get('domain')||''));
@@ -22,8 +22,9 @@ async function handler(req,res){
     if(req.method==='POST'&&req.url==='/api/validate'){const b=await body(req);return json(res,200,assistant.validate(b.field||{},b.value));}
     if(req.method==='POST'&&req.url==='/api/consensus'){const b=await body(req);return json(res,200,assistant.agree(b.candidates||[]));}
     if(req.method==='POST'&&req.url==='/api/recover'){const b=await body(req);if(!b.url)return json(res,400,{error:'url is required'});return json(res,200,await assistant.recover(b.url));}
-    if(req.method==='GET'&&(req.url==='/'||req.url==='/index.html')){const html=await readFile(path.join(root,'index.html'),'utf8');const client=await readFile(path.join(root,'engine','chat-client.js'),'utf8');res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});return res.end(html.replace('</body>',`<script>${client}</script></body>`));}
-    if(req.method==='GET'&&req.url==='/health')return json(res,200,{ok:true,service:'TONY',version:'1.1.0',capabilities:assistant.capabilities()});
+    if(req.method==='GET'&&req.url==='/runtime.js'){const js=await readFile(path.join(root,'engine','web-runtime.js'),'utf8');res.writeHead(200,{'content-type':'text/javascript; charset=utf-8','cache-control':'public, max-age=3600'});return res.end(js);}
+    if(req.method==='GET'&&(req.url==='/'||req.url==='/index.html')){const html=await readFile(path.join(root,'index.html'),'utf8');const runtime=await readFile(path.join(root,'engine','web-runtime.js'),'utf8');const client=await readFile(path.join(root,'engine','chat-client.js'),'utf8');const injected=`<script>${runtime}</script><script>${client}</script>`;res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});return res.end(html.replace('</body>',`${injected}</body>`));}
+    if(req.method==='GET'&&req.url==='/health')return json(res,200,{ok:true,service:'TONY',version:'2.0.0',capabilities:{...assistant.capabilities(),webRuntime:true,runtimeVersion:'2.0.0'}});
     return json(res,404,{error:'Not found'});
   }catch(e){return json(res,500,{error:String(e.message||e)});}
 }
