@@ -1,0 +1,1 @@
+import {catalog} from './catalog.js';export const registry=Object.freeze(Object.fromEntries(catalog.map(name=>[name,()=>import(`./${name}.js`)])));export const capabilities=()=>catalog.map(name=>({name,browserNative:true,nodeRequired:false}));
