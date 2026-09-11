@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="180" viewBox="0 0 720 180" role="img" aria-labelledby="title desc">
+  <title id="title">TonyAI logo</title>
+  <desc id="desc">TonyAI symbol followed by the TonyAI wordmark.</desc>
+  <image href="tonyai-logo-mark.png" x="12" y="12" width="156" height="156" preserveAspectRatio="xMidYMid meet"/>
+  <text x="194" y="111" fill="#0B1F4D" font-family="Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="74" font-weight="800" letter-spacing="-2">Tony<tspan fill="#10B7EE">AI</tspan></text>
+</svg>
