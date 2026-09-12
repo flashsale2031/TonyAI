@@ -1,7 +1,6 @@
-// TONY offline-first browser bridge.
-// Deterministic tools -> MidLM + pretrained neural backbone -> TransformerLM -> NeuralLM -> TinyLM -> server.
-// Pretrained weights are loaded by local-model.js from the configured Hugging Face
-// model runtime and cached locally; this bridge does not fabricate or embed weights.
+// TONY offline-first browser bridge v7.
+// Deterministic tools -> local MidLM -> cached pretrained neural weights -> smaller local models -> server.
+// OpenAI/server remains an optional final fallback rather than a required inference path.
 (() => {
   if(typeof window==='undefined'||window.__TONYLocalModelBridge)return;
   window.__TONYLocalModelBridge=true;
@@ -9,18 +8,47 @@
   const response=data=>new Response(JSON.stringify(data),{status:200,headers:{'content-type':'application/json','cache-control':'no-store'}});
   const isChat=(url,o={})=>{const p=typeof url==='string'?url:(url?.url||'');return /\/api\/chat(?:\?|$)/.test(p)&&String(o.method||'GET').toUpperCase()==='POST'};
   const simple=/^(hi|hello|hey|thanks|thank you|what is \d+\s*[+\-*/]\s*\d+\??)$/i;
-  const general=/\b(explain|compare|why|how|write|draft|analy[sz]e|reason|summarize|plan|describe|translate|code|story|essay|review|debug|design|refactor|implement|teach|research)\b/i;
-  let hybridPromise;
-  const ensureHybrid=async()=>{if(window.__TONYMidPretrainedInstance)return window.__TONYMidPretrainedInstance;if(!hybridPromise)hybridPromise=Promise.all([import('/engine/mid-pretrained-neural.js'),import('/engine/transformer-language-model.js').catch(()=>null)]).then(async([hybridMod,trMod])=>{const corpus=window.TONYTransformerTraining?.text||'';const transformer=trMod?.createTransformerLanguageModel?trMod.createTransformerLanguageModel({layers:8,heads:8,dim:256,ffDim:1024,maxSeq:512,seed:'tony-mid-pretrained-transformer'}):null;const m=hybridMod.createMidPretrainedNeuralEngine({pretrained:window.TONYLocalModel,midOptions:{corpusText:corpus||undefined,order:10,maxVocabulary:160000,beamWidth:10,answerCacheSize:2048,memoryTurns:160,retrievalLimit:16,contextBudget:8000,epochs:corpus?3:4,seed:'tony-mid-pretrained-v1'}});if(transformer)m.mid.attachTransformer(transformer);window.__TONYMidPretrainedInstance=m;return m;}).catch(e=>{window.__TONYMidPretrainedError=String(e?.message||e);return null});return hybridPromise;};
-  const hybridReply=async(messages,prompt)=>{const m=await ensureHybrid();if(!m)return null;const r=await m.chat(messages,{maxTokens:640,temperature:general.test(prompt)?.62:.66});return r?.reply&&r.reply.trim().length>3?{reply:r.reply.trim(),model:r.model||'SmolLM2-360M-Instruct',confidence:r.confidence||.86,pretrainedNeural:Boolean(r.pretrainedNeural),localMidModel:true,hybridEngine:r.engine,midArchitecture:r.midArchitecture,modelMode:r.mode}:null;};
-  const fallbackMid=async prompt=>{const m=window.__TONYMidInstance;if(!m)return null;const r=m.chat(prompt,{maxTokens:420,temperature:.54,useBeam:true,speculative:true});return r?.reply&&r.reply.trim().length>3?{reply:r.reply,model:'TONY-MidLM',confidence:r.confidence,localMidModel:true}:null;};
-  window.fetch=async(url,options={})=>{if(!isChat(url,options))return original(url,options);let body={};try{body=JSON.parse(options.body||'{}')}catch{return original(url,options)}const messages=Array.isArray(body.messages)?body.messages:[],latest=[...messages].reverse().find(m=>m?.role==='user')?.content||'';try{
-    if(window.TONYReplicatedEngine&&!general.test(latest)){const r=window.TONYReplicatedEngine.replicate(latest,{allowModel:false});if(r&&!r.requiresModel)return response({reply:r.reply,confidence:r.confidence,requiresHuman:false,localReplica:true,operation:r.operation,intent:r.intent,attachmentCount:(body.attachments||[]).length});}
-    if(latest&&!simple.test(latest)){const r=await hybridReply(messages,latest);if(r&&(!general.test(latest)||r.confidence>=.5))return response({...r,requiresHuman:false,attachmentCount:(body.attachments||[]).length});}
-    if(latest&&!simple.test(latest)){const r=await fallbackMid(latest);if(r&&(!general.test(latest)||r.confidence>=.5))return response({...r,requiresHuman:false,attachmentCount:(body.attachments||[]).length});}
-    if(latest&&!simple.test(latest)&&window.TONYLocalModel?.chat){try{const r=await window.TONYLocalModel.chat(messages,{maxTokens:640,temperature:general.test(latest)?.62:.68});if(r?.reply)return response({reply:r.reply.trim(),model:r.model||'SmolLM2-360M-Instruct',confidence:.86,pretrainedNeural:true,localModel:true,modelMode:r.mode,requiresHuman:false,attachmentCount:(body.attachments||[]).length});}catch(e){window.__TONYPretrainedModelError=String(e?.message||e)}}
-    if(latest&&!simple.test(latest)){const r=window.TONYNeuralLanguageModel?.createNeuralLanguageModel?(()=>{try{const m=window.__TONYNeuralInstance||window.TONYNeuralLanguageModel.createNeuralLanguageModel({epochs:12,learningRate:.035});window.__TONYNeuralInstance=m;const text=m.generate(latest,{maxTokens:160,temperature:.66,topK:16,repetitionPenalty:2});return text?.trim()?{reply:text.trim(),model:'TONY-NeuralLM',confidence:.7,localNeural:true}:null}catch{return null}})():null;if(r)return response({...r,requiresHuman:false,attachmentCount:(body.attachments||[]).length});}
-    if(window.TONYTinyChat&&!general.test(latest)&&!simple.test(latest)){const r=window.TONYTinyChat.tinyChat.chat(latest,{maxTokens:160,temperature:.42});if(r?.reply&&r.confidence>=.66)return response({reply:r.reply,confidence:r.confidence,requiresHuman:false,tinyModel:true,attachmentCount:(body.attachments||[]).length});}
-    if(window.TONYLocalOrchestrator){const r=window.TONYLocalOrchestrator.answer(latest,{attachments:body.attachments||[]});if(r?.reply&&r.confidence>=.75)return response({reply:r.reply,confidence:r.confidence,requiresHuman:false,localOrchestrator:true,route:r.route,operation:r.operation,intent:r.intent,attachmentCount:(body.attachments||[]).length});}
-  }catch(error){window.__TONYLocalError=String(error?.message||error)}return original(url,options);};
+  let localPromise;
+  const ensureLocal=async()=>{
+    if(window.__TONYMidLocalFirstInstance)return window.__TONYMidLocalFirstInstance;
+    if(!localPromise)localPromise=import('/engine/mid-local-first.js').then(({createMidLocalFirst})=>{const corpus=window.TONYTransformerTraining?.text||'';const m=createMidLocalFirst({corpusText:corpus});window.__TONYMidLocalFirstInstance=m;return m;}).catch(e=>{window.__TONYMidLocalFirstError=String(e?.message||e);return null});
+    return localPromise;
+  };
+  const localAnswer=async(messages)=>{const m=await ensureLocal();if(!m)return null;try{return await m.answer(messages,{pretrained:window.TONYLocalModel,maxTokens:640,temperature:.62});}catch(e){window.__TONYMidLocalFirstError=String(e?.message||e);return null;}};
+  window.fetch=async(url,options={})=>{
+    if(!isChat(url,options))return original(url,options);
+    let body={};try{body=JSON.parse(options.body||'{}')}catch{return original(url,options)}
+    const messages=Array.isArray(body.messages)?body.messages:[];
+    const latest=[...messages].reverse().find(m=>m?.role==='user')?.content||'';
+    try{
+      // Deterministic operations never need a neural or hosted model.
+      if(window.TONYReplicatedEngine&&!simple.test(latest)){
+        const r=window.TONYReplicatedEngine.replicate(latest,{allowModel:false});
+        if(r&&!r.requiresModel)return response({reply:r.reply,confidence:r.confidence,requiresHuman:false,localReplica:true,operation:r.operation,intent:r.intent,openaiRequired:false,attachmentCount:(body.attachments||[]).length});
+      }
+      // Primary path: MidLM runs entirely in JavaScript from its local corpus, retrieval,
+      // experts, memory, feedback and cached state. This path deliberately does not call OpenAI.
+      if(latest&&!simple.test(latest)){
+        const r=await localAnswer(messages);
+        if(r?.reply&&r.confidence>=.72)return response({...r,requiresHuman:false,openaiRequired:false,attachmentCount:(body.attachments||[]).length});
+      }
+      // If the local statistical answer is weak, use the pretrained neural weights locally.
+      if(latest&&!simple.test(latest)&&window.TONYLocalModel?.chat){
+        try{
+          const r=await window.TONYLocalModel.chat(messages,{maxTokens:640,temperature:.62});
+          if(r?.reply&&r.reply.trim().length>3)return response({reply:r.reply.trim(),model:r.model||'SmolLM2-360M-Instruct',confidence:.84,pretrainedNeural:true,localModel:true,modelMode:r.mode,openaiRequired:false,requiresHuman:false,attachmentCount:(body.attachments||[]).length});
+        }catch(e){window.__TONYPretrainedModelError=String(e?.message||e)}
+      }
+      // Existing compact local models remain available as additional offline fallbacks.
+      if(window.TONYNeuralLanguageModel?.createNeuralLanguageModel&&latest&&!simple.test(latest)){
+        try{const m=window.__TONYNeuralInstance||window.TONYNeuralLanguageModel.createNeuralLanguageModel({epochs:12,learningRate:.035});window.__TONYNeuralInstance=m;const text=m.generate(latest,{maxTokens:180,temperature:.64,topK:16,repetitionPenalty:2});if(text?.trim())return response({reply:text.trim(),model:'TONY-NeuralLM',confidence:.7,localNeural:true,openaiRequired:false,requiresHuman:false,attachmentCount:(body.attachments||[]).length});}catch(e){window.__TONYNeuralError=String(e?.message||e)}
+      }
+      if(window.TONYTinyChat&&latest&&!simple.test(latest)){
+        try{const r=window.TONYTinyChat.tinyChat.chat(latest,{maxTokens:180,temperature:.42});if(r?.reply&&r.confidence>=.64)return response({reply:r.reply,confidence:r.confidence,requiresHuman:false,tinyModel:true,openaiRequired:false,attachmentCount:(body.attachments||[]).length});}catch(e){window.__TONYTinyError=String(e?.message||e)}
+      }
+      if(window.TONYLocalOrchestrator){const r=window.TONYLocalOrchestrator.answer(latest,{attachments:body.attachments||[]});if(r?.reply&&r.confidence>=.7)return response({reply:r.reply,confidence:r.confidence,requiresHuman:false,localOrchestrator:true,route:r.route,operation:r.operation,intent:r.intent,openaiRequired:false,attachmentCount:(body.attachments||[]).length});}
+    }catch(error){window.__TONYLocalError=String(error?.message||error)}
+    // Only now does the original server/OpenAI path get a chance to answer.
+    return original(url,options);
+  };
 })();
