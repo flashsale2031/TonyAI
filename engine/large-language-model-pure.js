@@ -1,47 +1,26 @@
-// TONY LargeLM Pure v5.
-// Primary generation remains pure JavaScript: local numerical parameters + local retrieval + JS experts.
+// TONY LargeLM Pure v6.
+// Primary generation remains pure JavaScript: 900K local numerical parameters + local retrieval + JS experts.
 // No pretrained neural model is required, loaded, or used for primary generation.
 import {createLargeLanguageModel as createBaseLarge} from './large-language-model.js';
 import {atlasSearch,atlasStats,LARGE_KNOWLEDGE_ATLAS_TEXT} from './large-knowledge-atlas.js';
 import {LARGE_LIBRARY_TEXT,libraryStats} from './large-language-library.js';
 import {createLargeParameterBrain} from './large-parameter-brain.js';
-
-const clean=s=>String(s??'').trim();
-const norm=s=>clean(s).toLowerCase();
+const clean=s=>String(s??'').trim(),norm=s=>clean(s).toLowerCase();
 const words=s=>new Set((norm(s).match(/[\p{L}\p{N}]+/gu)||[]).filter(x=>x.length>2));
 const sim=(a,b)=>{const A=words(a),B=words(b);if(!A.size||!B.size)return 0;let n=0;for(const x of A)if(B.has(x))n++;return n/Math.sqrt(A.size*B.size)};
 const overlap=(a,b)=>{const A=words(a),B=words(b);if(!A.size)return 0;let n=0;for(const x of A)if(B.has(x))n++;return n/A.size};
 const route=q=>{const x=norm(q);if(/\b(code|javascript|typescript|node|npm|git|sql|html|css|api|debug|program|regex)\b/.test(x))return'code';if(/\b(research|source|citation|latest|news|web)\b/.test(x))return'research';if(/\b(plan|roadmap|strategy|project|workflow|schedule)\b/.test(x))return'plan';if(/\b(analy[sz]e|data|statistics|metric|evaluate|inspect)\b/.test(x))return'analyze';if(/\b(compare|versus|difference|tradeoff|pros|cons)\b/.test(x))return'compare';if(/\b(write|draft|essay|story|email|letter|rewrite|edit)\b/.test(x))return'write';return'reason'};
 function deterministic(q){const x=norm(q),n=[...x.matchAll(/-?\d+(?:\.\d+)?/g)].map(m=>Number(m[0]));if(n.length>=2&&/(sum|add|plus|total)/.test(x))return`The result is ${n.reduce((a,b)=>a+b,0)}.`;if(n.length>=2&&/(multiply|times|product)/.test(x))return`The result is ${n.reduce((a,b)=>a*b,1)}.`;if(n.length>=2&&/(average|mean)/.test(x))return`The arithmetic mean is ${n.reduce((a,b)=>a+b,0)/n.length}.`;if(/\b(hello|hi|hey)\b/.test(x))return'Hello. I can answer using TONY’s local JavaScript knowledge and numerical reasoning engine.';return'';}
-
 export class PureJavaScriptLargeLM extends (class {}){
- constructor(options={}){
-  super();
-  this.contextBudget=options.contextBudget||28000;
-  this.core=createBaseLarge({...options,pretrained:null,neuralFirst:false,contextBudget:this.contextBudget,memoryTurns:options.memoryTurns||1536,maxTokens:options.maxTokens||1400});
-  this.parameterBrain=createLargeParameterBrain({seed:0x544f4e59,corpus:`${LARGE_LIBRARY_TEXT}\n${LARGE_KNOWLEDGE_ATLAS_TEXT}`});
-  this.version='5.0';
- }
+ constructor(options={}){super();this.contextBudget=options.contextBudget||32000;this.core=createBaseLarge({...options,pretrained:null,neuralFirst:false,contextBudget:this.contextBudget,memoryTurns:options.memoryTurns||2048,maxTokens:options.maxTokens||1600});this.parameterBrain=createLargeParameterBrain({seed:0x544f4e59,corpus:`${LARGE_LIBRARY_TEXT}\n${LARGE_KNOWLEDGE_ATLAS_TEXT}`});this.version='6.0';}
  addMemory(...a){return this.core.addMemory(...a)}
- train(...a){const result=this.core.train(...a);if(a[0])this.parameterBrain.fit(a[0],{epochs:2});return result}
+ train(...a){const result=this.core.train(...a);if(a[0])this.parameterBrain.fit(a[0],{epochs:3});return result}
  learn(...a){return this.core.learn(...a)}
  save(){return JSON.stringify({core:this.core.save(),parameterBrain:this.parameterBrain.serialize(),version:this.version})}
  load(s){const x=JSON.parse(s);if(x.core)this.core.load(x.core);if(x.parameterBrain)this.parameterBrain.load(x.parameterBrain);return this.stats()}
- stats(){return{...this.core.stats(),architecture:'large-pure-javascript-750k-parameter-atlas-v5',version:this.version,pretrainedAttached:false,pretrainedRequired:false,neuralBackbone:'none',atlas:atlasStats(),library:libraryStats(),numericalBrain:this.parameterBrain.stats(),primaryGeneration:'750k-local-parameter-brain-plus-javascript-experts'}}
- async generate(input,{maxTokens=1400,temperature=.48}={}){
-  const q=clean(input);if(!q)return'';const d=deterministic(q);if(d)return d;const routeName=route(q);
-  const hits=atlasSearch(q,48).filter(x=>(x.score||0)>.01);const local=[];
-  const atlasContext=hits.map(x=>x.text).join('\n');
-  const paramText=this.parameterBrain.generate(q,atlasContext,{maxTokens:Math.min(480,maxTokens)});if(paramText)local.push({text:paramText,score:.90,route:'750k-parameter-brain'});
-  try{const text=await this.core.generate(q,{maxTokens,temperature,useNeural:false});if(text)local.push({text,score:.78,route:routeName});}catch{}
-  for(const h of hits.slice(0,18))local.push({text:h.text,score:.32+(h.score||0)*1.9,route:'knowledge-atlas'});
-  if(!local.length)return 'I do not have enough local evidence to answer that reliably.';
-  const ranked=this.parameterBrain.rank(q,local,Math.min(14,local.length));
-  ranked.sort((a,b)=>{const sa=a.parameterScore+(a.score||0)+sim(q,a.text)*.55+overlap(q,a.text)*.12;const sb=b.parameterScore+(b.score||0)+sim(q,b.text)*.55+overlap(q,b.text)*.12;return sb-sa});
-  const chosen=ranked[0].text.replace(/^.*?assistant:\s*/is,'').trim();const second=ranked.find(x=>x.text!==chosen&&sim(chosen,x.text)>.12&&sim(q,x.text)>.04);const answer=second&&chosen.length<520?`${chosen} ${second.text}`:chosen;
-  return answer.length>Math.max(2400,maxTokens*9)?answer.slice(0,Math.max(2400,maxTokens*9)).replace(/\s+\S*$/,'')+'…':answer;
- }
- async chat(input,options={}){const q=clean(input);const reply=await this.generate(q,options);this.addMemory('user',q);this.addMemory('assistant',reply);return{reply,engine:'large-pure-js-v5.0',model:'TONY-LargeLM-Pure-v5.0',local:true,openaiRequired:false,pretrainedRequired:false,neuralBackbone:'none',confidence:Math.min(.98,.46+sim(q,reply)*.39),atlasEntries:atlasStats().entries,parameterCount:this.parameterBrain.stats().parameterCount,learnedNumericalParameters:this.parameterBrain.stats().parameterCount};}
+ stats(){return{...this.core.stats(),architecture:'large-pure-javascript-900k-parameter-atlas-v6',version:this.version,pretrainedAttached:false,pretrainedRequired:false,neuralBackbone:'none',atlas:atlasStats(),library:libraryStats(),numericalBrain:this.parameterBrain.stats(),primaryGeneration:'900k-local-parameter-brain-plus-javascript-experts'}}
+ async generate(input,{maxTokens=1600,temperature=.44}={}){const q=clean(input);if(!q)return'';const d=deterministic(q);if(d)return d;const routeName=route(q),hits=atlasSearch(q,64).filter(x=>(x.score||0)>.008),local=[];const atlasContext=hits.map(x=>x.text).join('\n');const paramText=this.parameterBrain.generate(q,atlasContext,{maxTokens:Math.min(560,maxTokens)});if(paramText)local.push({text:paramText,score:.92,route:'900k-parameter-brain'});try{const text=await this.core.generate(q,{maxTokens,temperature,useNeural:false});if(text)local.push({text,score:.80,route:routeName});}catch{}for(const h of hits.slice(0,24))local.push({text:h.text,score:.30+(h.score||0)*2,route:'knowledge-atlas'});if(!local.length)return'I do not have enough local evidence to answer that reliably.';const ranked=this.parameterBrain.rank(q,local,Math.min(18,local.length));ranked.sort((a,b)=>{const sa=a.parameterScore+(a.score||0)+sim(q,a.text)*.58+overlap(q,a.text)*.14;const sb=b.parameterScore+(b.score||0)+sim(q,b.text)*.58+overlap(q,b.text)*.14;return sb-sa});const chosen=ranked[0].text.replace(/^.*?assistant:\s*/is,'').trim();const second=ranked.find(x=>x.text!==chosen&&sim(chosen,x.text)>.12&&sim(q,x.text)>.04);const answer=second&&chosen.length<600?`${chosen} ${second.text}`:chosen;return answer.length>Math.max(2800,maxTokens*9)?answer.slice(0,Math.max(2800,maxTokens*9)).replace(/\s+\S*$/,'')+'…':answer;}
+ async chat(input,options={}){const q=clean(input),reply=await this.generate(q,options);this.addMemory('user',q);this.addMemory('assistant',reply);return{reply,engine:'large-pure-js-v6.0',model:'TONY-LargeLM-Pure-v6.0',local:true,openaiRequired:false,pretrainedRequired:false,neuralBackbone:'none',confidence:Math.min(.985,.47+sim(q,reply)*.40),atlasEntries:atlasStats().entries,parameterCount:this.parameterBrain.stats().parameterCount,learnedNumericalParameters:this.parameterBrain.stats().parameterCount};}
  async stream(input,options={}){const text=await this.generate(input,options);return(text.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*|[^\p{L}\p{N}\s]/gu)||[]).map((token,index)=>({token,index}));}
 }
 export const createPureJavaScriptLargeLanguageModel=(options={})=>new PureJavaScriptLargeLM(options);
