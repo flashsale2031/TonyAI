@@ -1,5 +1,5 @@
 // TONY offline-first browser bridge.
-// Deterministic tools -> Pure JavaScript 70B LargeLM -> local utilities -> server.
+// Deterministic tools -> Pure JavaScript 80B LargeLM -> local utilities -> server.
 // No pretrained neural language model is loaded or required by the primary chat path.
 (() => {
   if(typeof window==='undefined'||window.__TONYLocalModelBridge)return;
@@ -9,11 +9,11 @@
   const isChat=(url,o={})=>{const p=typeof url==='string'?url:(url?.url||'');return /\/api\/chat(?:\?|$)/.test(p)&&String(o.method||'GET').toUpperCase()==='POST'};
   const general=/\b(explain|compare|why|how|write|draft|analy[sz]e|reason|summarize|plan|describe|translate|code|story|essay|review|debug|design|refactor|implement|teach|research)\b/i;
   let largePromise;
-  const ensureLarge=async()=>{if(window.__TONYPureLargeLM)return window.__TONYPureLargeLM;if(!largePromise)largePromise=import('/engine/large-language-model-pure-70b.js').then(m=>{const r=m.createPureJavaScriptLargeLanguageModel70B({experts:8,contextBudget:200000000,memoryTurns:1024,maxTokens:3600,seed:'tony-large-pure-v70b'});window.__TONYPureLargeLM=r;return r}).catch(e=>{window.__TONYLocalLargeModelError=String(e?.message||e);return null});return largePromise;};
-  const largeReply=async(prompt)=>{const m=await ensureLarge();if(!m)return null;try{const r=await m.chat(prompt,{maxTokens:general.test(prompt)?3600:2300,temperature:general.test(prompt)?.52:.46});return r?.reply&&r.reply.trim().length>2?r:null}catch{return null}};
+  const ensureLarge=async()=>{if(window.__TONYPureLargeLM)return window.__TONYPureLargeLM;if(!largePromise)largePromise=import('/engine/large-language-model-pure-80b.js').then(m=>{const r=m.createPureJavaScriptLargeLanguageModel80B({experts:8,contextBudget:220000000,memoryTurns:1024,maxTokens:4000,seed:'tony-large-pure-v80b'});window.__TONYPureLargeLM=r;return r}).catch(e=>{window.__TONYLocalLargeModelError=String(e?.message||e);return null});return largePromise;};
+  const largeReply=async(prompt)=>{const m=await ensureLarge();if(!m)return null;try{const r=await m.chat(prompt,{maxTokens:general.test(prompt)?4000:2500,temperature:general.test(prompt)?.52:.46});return r?.reply&&r.reply.trim().length>2?r:null}catch{return null}};
   window.fetch=async(url,options={})=>{if(!isChat(url,options))return original(url,options);let body={};try{body=JSON.parse(options.body||'{}')}catch{return original(url,options)}const messages=Array.isArray(body.messages)?body.messages:[],latest=[...messages].reverse().find(m=>m?.role==='user')?.content||'';try{
     if(window.TONYReplicatedEngine&&!general.test(latest)){const r=window.TONYReplicatedEngine.replicate(latest,{allowModel:false});if(r&&!r.requiresModel)return response({reply:r.reply,confidence:r.confidence,requiresHuman:false,localReplica:true,openaiRequired:false,pretrainedRequired:false,neuralBackbone:'none',operation:r.operation,intent:r.intent,attachmentCount:(body.attachments||[]).length});}
-    if(latest){const r=await largeReply(latest);if(r)return response({...r,requiresHuman:false,openaiRequired:false,pretrainedRequired:false,neuralBackbone:'none',pureJavaScript:true,largeLocalModel:true,largeModelParameters:70000000000,comparisonTarget:'8b-neural-network-benchmark-target',attachmentCount:(body.attachments||[]).length});}
+    if(latest){const r=await largeReply(latest);if(r)return response({...r,requiresHuman:false,openaiRequired:false,pretrainedRequired:false,neuralBackbone:'none',pureJavaScript:true,largeLocalModel:true,largeModelParameters:80000000000,comparisonTarget:'8b-neural-network-benchmark-target',attachmentCount:(body.attachments||[]).length});}
     if(window.TONYLocalOrchestrator){const r=window.TONYLocalOrchestrator.answer(latest,{attachments:body.attachments||[]});if(r?.reply&&r.confidence>=.7)return response({...r,requiresHuman:false,openaiRequired:false,pretrainedRequired:false,neuralBackbone:'none',attachmentCount:(body.attachments||[]).length});}
   }catch(error){window.__TONYLocalError=String(error?.message||error)}
   return original(url,options);};
