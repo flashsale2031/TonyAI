@@ -1,7 +1,7 @@
 // TONY LargeLM Pure v34.
 // Primary generation remains pure JavaScript: 15.0M local numerical parameters + local retrieval + JS experts.
 // No pretrained neural model is required, loaded, or used for primary generation.
-import {createBaseLarge} from './large-language-model.js';
+import {createLargeLanguageModel as createBaseLarge} from './large-language-model.js';
 import {atlasSearch,atlasStats,LARGE_KNOWLEDGE_ATLAS_TEXT} from './large-knowledge-atlas.js';
 import {LARGE_LIBRARY_TEXT,libraryStats} from './large-language-library.js';
 import {LARGE_JAVASCRIPT_KNOWLEDGE_TEXT,javascriptKnowledgeStats} from './large-javascript-knowledge.js';
