@@ -27,16 +27,16 @@ jobs:
         shell: bash
         run: |
           set +e
-          node scripts/chatbox-100-ci-v12.mjs > duckai-test.log 2>&1
+          node scripts/chatbox-100-ci-v15.mjs > duckai-test.log 2>&1
           status=$?
           cat duckai-test.log
           printf '%s' "$status" > duckai-test.status
           exit 0
-      - name: Upload Duck.ai failure diagnostics
+      - name: Upload Duck.ai diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: duckai-failure-diagnostics
+          name: duckai-test-diagnostics
           path: |
             duckai-test.log
             duckai-test.status
