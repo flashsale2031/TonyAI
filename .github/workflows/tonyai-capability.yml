@@ -6,10 +6,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-concurrency:
-  group: tonyai-capability-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   capability:
     runs-on: ubuntu-latest
@@ -22,10 +18,8 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Install Chromium for Playwright
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - run: npm test
       - run: npm run lint
       - name: Run 100-question Duck.ai + TonyAI chatbox test
-        env:
-          CI: true
-        run: npm run test:chatbox-100
+        run: node scripts/chatbox-100-ci.mjs
