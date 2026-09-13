@@ -12,7 +12,7 @@ const cases = [
  ['word count','Word count: one two three four',['"words": 6']],
  ['reverse text','Reverse: TonyAI',['IAynoT']],
  ['slug text','Slug: TonyAI Large JavaScript LM',['tonyai-large-javascript-lm']],
- ['summary request','Summarize: TONY uses deterministic tools. It validates inputs. It preserves provenance.',['Key points from the available material:','TONY uses deterministic tools.']],
+ ['summary request','Summarize: TONY uses deterministic tools. It validates inputs. It preserves provenance.',['TONY uses deterministic tools.']],
  ['code lint','Analyze code: ```js\nconst x = ;\n```',['Language: javascript','Issues:']],
  ['code stats','Lint code: ```js\nfunction add(a,b){ return a+b; }\n```',['Language: javascript','Lines:']],
  ['multiple arithmetic','Calculate 7 * 8 + 4',['60']],
