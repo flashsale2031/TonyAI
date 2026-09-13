@@ -1,4 +1,4 @@
-name: TonyAI real image samples
+name: TonyAI native image samples
 
 on:
   workflow_dispatch:
@@ -17,25 +17,18 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - name: Require image provider credential
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: test -n "$OPENAI_API_KEY"
-      - name: Generate 20 real PNG images
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_IMAGE_MODEL: gpt-image-2
+      - name: Generate 20 native images
         run: node scripts/generate-real-image-samples.mjs
-      - name: Verify exactly 20 non-empty PNG images
+      - name: Verify exactly 20 non-empty SVG images
         run: |
-          count=$(find samples/generated-images -maxdepth 1 -type f -name 'sample-*.png' | wc -l)
+          count=$(find samples/generated-images -maxdepth 1 -type f -name 'sample-*.svg' | wc -l)
           test "$count" -eq 20
-          find samples/generated-images -maxdepth 1 -type f -name 'sample-*.png' -size +100c | wc -l | grep -qx 20
+          find samples/generated-images -maxdepth 1 -type f -name 'sample-*.svg' -size +100c | wc -l | grep -qx 20
       - name: Commit generated images
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add samples/generated-images/*.png
+          git add samples/generated-images/*.svg
           git diff --cached --quiet && { echo 'No generated images to commit'; exit 1; }
-          git commit -m 'chore: add 20 real image generation samples [skip ci]'
+          git commit -m 'chore: add 20 native TonyAI image samples [skip ci]'
           git push origin HEAD:main
