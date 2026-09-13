@@ -25,6 +25,7 @@ const pageCache=new Map();
 const CACHE_MAX_AGE=31536000;
 const PAGE_MAX_AGE=300;
 const CHAT_TIMEOUT_MS=2000;
+const CHATRESPONSE_CACHE_MS=30000;
 
 function compress(body,acceptEncoding){
  const source=Buffer.isBuffer(body)?body:Buffer.from(body);
@@ -51,12 +52,15 @@ async function textAsset(res,file,req){
 async function page(){
  if(!pageCache.has('html')){
   const html=await readFile(path.join(root,'index.html'),'utf8');
-  const [runtime,local,large]=await Promise.all([asset('web-runtime.js'),asset('local-brain.js'),asset('large-js-lm.js')]);
-  const injected=`<script>${runtime.toString()}</script><script>${local.toString()}</script><script type="module">${large.toString()}</script>`;
+  const [runtime,local,large,chatresponseClient]=await Promise.all([asset('web-runtime.js'),asset('local-brain.js'),asset('large-js-lm.js'),asset('chatresponse-client.js')]);
+  const injected=`<script>${runtime.toString()}</script><script>${local.toString()}</script><script type="module">${large.toString()}</script><script>${chatresponseClient.toString()}</script>`;
   pageCache.set('html',Buffer.from(html.replace('</body>',`${injected}</body>`)));
  }
  return pageCache.get('html');
 }
+function chatResponseCacheKey(query,options){return `${String(query||'').trim().toLowerCase()}|${Number(options?.maxResults)||12}|${options?.verify!==false}`;}
+function pruneChatResponseCache(){const now=Date.now();for(const [key,value] of responseCache){if(now-value.created>CHATRESPONSE_CACHE_MS)responseCache.delete(key)}}
+async function cachedChatResponse(query,options){pruneChatResponseCache();const key=chatResponseCacheKey(query,options);const hit=responseCache.get(key);if(hit)return {...hit.value,cache:'hit',cacheAgeMs:Date.now()-hit.created};const value=await chatresponse(query,options);responseCache.set(key,{created:Date.now(),value});return {...value,cache:'miss',cacheAgeMs:0};}
 async function handler(req,res){
  const started=performance.now();
  try{
@@ -64,7 +68,11 @@ async function handler(req,res){
    const result=await Promise.race([largeJSChat(await body(req),assistant),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Chat request exceeded 2 second response budget')),CHAT_TIMEOUT_MS))]);
    return json(res,200,materializeChatArtifacts(result),req);
   }
-  if(req.method==='POST'&&req.url==='/api/chatresponse'){const b=await body(req);if(!b.query)return json(res,400,{error:'query is required'},req);return json(res,200,await chatresponse(b.query,{maxResults:b.maxResults||12,timeoutMs:Math.min(Number(b.timeoutMs)||1800,1900)}),req);}
+  if(req.method==='POST'&&req.url==='/api/chatresponse'){
+   const b=await body(req);if(!b.query)return json(res,400,{error:'query is required'},req);
+   const options={maxResults:b.maxResults||12,timeoutMs:Math.min(Number(b.timeoutMs)||1800,1900),verify:b.verify!==false};
+   return json(res,200,await cachedChatResponse(b.query,options),req,'private, max-age=5, stale-while-revalidate=30');
+  }
   if(req.method==='POST'&&req.url==='/api/replica')return json(res,200,replicate(await body(req)),req);
   if(req.method==='POST'&&req.url==='/api/binary-replacement')return json(res,200,binaryReplacement(await body(req)),req);
   if(req.method==='POST'&&req.url==='/api/local-chat'){const b=await body(req);return json(res,200,localBrain.answer(b.message||''),req);}
@@ -74,7 +82,7 @@ async function handler(req,res){
   if(req.method==='POST'&&req.url==='/api/image')return json(res,200,tonyAIProvider.generateImage(await body(req)),req);
   if(req.method==='POST'&&req.url==='/api/search'){const b=await body(req);if(!b.query)return json(res,400,{error:'query is required'},req);return json(res,200,await duckduckgoSearch(b.query,{maxResults:b.maxResults||8,region:b.region||process.env.DUCKDUCKGO_REGION||'wt-wt',safeSearch:b.safeSearch||process.env.DUCKDUCKGO_SAFESEARCH||'moderate'}),req);}
   if(req.method==='POST'&&req.url==='/api/files'){const b=await body(req);const files=Array.isArray(b.files)?b.files:[];if(!files.length)return json(res,400,{error:'files array is required'},req);if(files.length>50)return json(res,400,{error:'Maximum 50 files per artifact request'},req);return json(res,200,generateArtifacts({files,zip:b.zip===true,zipName:b.zipName||'tony-downloads.zip'}),req);}
-  if(req.method==='GET'&&req.url==='/api/capabilities')return json(res,200,{...assistant.capabilities(),functionalReplica:true,binaryReplacement:binaryReplacementStatus(),localBrain:true,localLanguageModel:true,largeJavaScriptLM:true,largeJavaScriptLMParameters:LARGE_JS_LM_PARAMETER_CAPACITY,largeJavaScriptLMParameterMode:'virtual-sparse-capacity',largeJavaScriptLMPrimaryBackbone:'pure-javascript',largeJavaScriptLMPretrainedRequired:false,largeJavaScriptLMExternalNeuralModel:false,largeJavaScriptLMExternalGenerationAPI:false,openAIRequired:false,provider:tonyAIProvider.capabilities(),pureJavaScriptMode:true,externalSearchEnabled:true,externalImageGenerationEnabled:true,chatPrimary:'large-js-primary',chatToolOrchestration:true,chatResponseSearchEngine:'DuckDuckGo DOM via chatresponse.js',chatResponseDomInspection:true,chatResponseFrequencyMap:true,performance:{keepAlive:true,immutableEngineAssets:true,cachedInferenceHotPaths:true,compressedResponses:true,pageCache:true,chatResponseBudgetMs:CHAT_TIMEOUT_MS}},req,'public, max-age=30, stale-while-revalidate=300');
+  if(req.method==='GET'&&req.url==='/api/capabilities')return json(res,200,{...assistant.capabilities(),functionalReplica:true,binaryReplacement:binaryReplacementStatus(),localBrain:true,localLanguageModel:true,largeJavaScriptLM:true,largeJavaScriptLMParameters:LARGE_JS_LM_PARAMETER_CAPACITY,largeJavaScriptLMParameterMode:'virtual-sparse-capacity',largeJavaScriptLMPrimaryBackbone:'pure-javascript',largeJavaScriptLMPretrainedRequired:false,largeJavaScriptLMExternalNeuralModel:false,largeJavaScriptLMExternalGenerationAPI:false,openAIRequired:false,provider:tonyAIProvider.capabilities(),pureJavaScriptMode:true,externalSearchEnabled:true,externalImageGenerationEnabled:true,chatPrimary:'large-js-primary',chatToolOrchestration:true,chatResponseSearchEngine:'DuckDuckGo DOM via chatresponse.js',chatResponseDomInspection:true,chatResponseFrequencyMap:true,performance:{keepAlive:true,immutableEngineAssets:true,cachedInferenceHotPaths:true,compressedResponses:true,pageCache:true,chatResponseBudgetMs:CHAT_TIMEOUT_MS,chatResponseCacheMs:CHATRESPONSE_CACHE_MS}},req,'public, max-age=30, stale-while-revalidate=300');
   if(req.method==='GET'&&req.url==='/api/large-js-stats')return json(res,200,largeJavaScriptLM.stats(),req,'public, max-age=10, stale-while-revalidate=60');
   if(req.method==='GET'&&req.url==='/runtime.js')return textAsset(res,'web-runtime.js',req);
   if(req.method==='GET'&&req.url==='/engine/neural-training-data.js')return textAsset(res,'neural-training-data.js',req);
@@ -82,9 +90,10 @@ async function handler(req,res){
   if(req.method==='GET'&&req.url==='/engine/large-js-lm.js')return textAsset(res,'large-js-lm.js',req);
   if(req.method==='GET'&&req.url==='/engine/large-js-chat.js')return textAsset(res,'large-js-chat.js',req);
   if(req.method==='GET'&&req.url==='/engine/chatresponse.js')return textAsset(res,'chatresponse.js',req);
+  if(req.method==='GET'&&req.url==='/engine/chatresponse-client.js')return textAsset(res,'chatresponse-client.js',req);
   if(req.method==='GET'&&req.url==='/engine/tonyai-provider.js')return textAsset(res,'tonyai-provider.js',req);
   if(req.method==='GET'&&(req.url==='/'||req.url==='/index.html'))return send(res,200,await page(),{'content-type':'text/html; charset=utf-8','cache-control':`public, max-age=${PAGE_MAX_AGE}, stale-while-revalidate=600`},req);
-  if(req.method==='GET'&&req.url==='/health')return json(res,200,{ok:true,service:'TONY',pureJavaScriptMode:true,largeJavaScriptLM:true,largeJavaScriptLMParameters:LARGE_JS_LM_PARAMETER_CAPACITY,largeJavaScriptLMParameterMode:'virtual-sparse-capacity',largeJavaScriptLMPrimaryBackbone:'pure-javascript',largeJavaScriptLMPretrainedRequired:false,largeJavaScriptLMExternalNeuralModel:false,externalSearchEnabled:true,externalImageGenerationEnabled:true,openAIRequired:false,provider:tonyAIProvider.capabilities(),chatPrimary:'large-js-primary',chatResponseSearchEngine:'DuckDuckGo DOM via chatresponse.js',chatResponseDomInspection:true,chatResponseFrequencyMap:true,performance:{keepAlive:true,immutableEngineAssets:true,cachedInferenceHotPaths:true,compressedResponses:true,pageCache:true,chatResponseBudgetMs:CHAT_TIMEOUT_MS}},req,'public, max-age=5, stale-while-revalidate=30');
+  if(req.method==='GET'&&req.url==='/health')return json(res,200,{ok:true,service:'TONY',pureJavaScriptMode:true,largeJavaScriptLM:true,largeJavaScriptLMParameters:LARGE_JS_LM_PARAMETER_CAPACITY,largeJavaScriptLMParameterMode:'virtual-sparse-capacity',largeJavaScriptLMPrimaryBackbone:'pure-javascript',largeJavaScriptLMPretrainedRequired:false,largeJavaScriptLMExternalNeuralModel:false,externalSearchEnabled:true,externalImageGenerationEnabled:true,openAIRequired:false,provider:tonyAIProvider.capabilities(),chatPrimary:'large-js-primary',chatResponseSearchEngine:'DuckDuckGo DOM via chatresponse.js',chatResponseDomInspection:true,chatResponseFrequencyMap:true,performance:{keepAlive:true,immutableEngineAssets:true,cachedInferenceHotPaths:true,compressedResponses:true,pageCache:true,chatResponseBudgetMs:CHAT_TIMEOUT_MS,chatResponseCacheMs:CHATRESPONSE_CACHE_MS}},req,'public, max-age=5, stale-while-revalidate=30');
   return json(res,404,{error:'Not found'},req);
  }catch(e){return json(res,e?.message?.includes('2 second response budget')?504:500,{error:String(e.message||e),performance:{budgetMs:CHAT_TIMEOUT_MS,elapsedMs:Math.round(performance.now()-started)}},req);}
 }
