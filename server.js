@@ -3,6 +3,8 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { gzipSync, brotliCompressSync } from 'node:zlib';
+import { performance } from 'node:perf_hooks';
 import { UltimateAssistant } from './engine/ultimate-assistant.js';
 import { duckduckgoSearch } from './engine/duckduckgo.js';
 import { generateArtifacts } from './engine/file-generator.js';
@@ -12,34 +14,82 @@ import { binaryReplacement, binaryReplacementStatus } from './engine/binary-repl
 import { largeJavaScriptLM, LARGE_JS_LM_PARAMETER_CAPACITY } from './engine/large-js-lm.js';
 import { largeJSChat } from './engine/large-js-chat.js';
 import { tonyAIProvider } from './engine/tonyai-provider.js';
+
 const root=path.dirname(fileURLToPath(import.meta.url));
 const port=Number(process.env.PORT||3000);
 const assistant=new UltimateAssistant();
-const json=(res,status,body)=>{res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','connection':'keep-alive'});res.end(JSON.stringify(body));};
+const responseCache=new Map();
+const assetCache=new Map();
+const pageCache=new Map();
+const CACHE_MAX_AGE=31536000;
+const PAGE_MAX_AGE=300;
+const CHAT_TIMEOUT_MS=2000;
+
+function compress(body,acceptEncoding){
+ const source=Buffer.isBuffer(body)?body:Buffer.from(body);
+ if(source.length<512)return{body:source,encoding:null};
+ if(/br/i.test(acceptEncoding||''))return{body:brotliCompressSync(source,{params:{11:5}}),encoding:'br'};
+ if(/gzip/i.test(acceptEncoding||''))return{body:gzipSync(source,{level:6}),encoding:'gzip'};
+ return{body:source,encoding:null};
+}
+function send(res,status,body,headers={},req){
+ const packed=compress(body,req?.headers?.['accept-encoding']||'');
+ const out={...headers,'content-length':String(packed.body.length),'connection':'keep-alive'};
+ if(packed.encoding)out['content-encoding']=packed.encoding;
+ res.writeHead(status,out);res.end(packed.body);
+}
+function json(res,status,body,req,cacheControl='no-store'){
+ send(res,status,JSON.stringify(body),{'content-type':'application/json; charset=utf-8','cache-control':cacheControl},req);
+}
 async function body(req){let s='';for await(const c of req)s+=c;if(!s)return {};if(s.length>20_000_000)throw new Error('Request body too large');return JSON.parse(s);}
 function materializeChatArtifacts(result){const files=Array.isArray(result?.files)?result.files.filter(f=>f&&typeof f.filename==='string'&&typeof f.content==='string').slice(0,50):[];if(!files.length)return result;return {...result,artifacts:{...(result.artifacts||{}),...generateArtifacts({files,zip:result.zip===true||files.length>1,zipName:result.zipName||'tony-generated-files.zip'})}};}
-async function textAsset(res,file){const js=await readFile(path.join(root,'engine',file),'utf8');res.writeHead(200,{'content-type':'text/javascript; charset=utf-8','cache-control':'public, max-age=31536000, immutable','content-encoding':'identity','connection':'keep-alive'});return res.end(js);}
-async function handler(req,res){try{
- if(req.method==='POST'&&req.url==='/api/chat')return json(res,200,materializeChatArtifacts(await largeJSChat(await body(req),assistant)));
- if(req.method==='POST'&&req.url==='/api/replica')return json(res,200,replicate(await body(req)));
- if(req.method==='POST'&&req.url==='/api/binary-replacement')return json(res,200,binaryReplacement(await body(req)));
- if(req.method==='POST'&&req.url==='/api/local-chat'){const b=await body(req);return json(res,200,localBrain.answer(b.message||''));}
- if(req.method==='POST'&&req.url==='/api/large-js-chat'){const b=await body(req);return json(res,200,await largeJSChat(b,assistant));}
- if(req.method==='POST'&&req.url==='/api/large-js-learn'){const b=await body(req);return json(res,200,largeJavaScriptLM.learn(b.text||'',b.options||{}));}
- if(req.method==='POST'&&req.url==='/api/large-js-knowledge'){const b=await body(req);return json(res,200,{entries:largeJavaScriptLM.addKnowledge(b.entries||[]),stats:largeJavaScriptLM.stats()});}
- if(req.method==='POST'&&req.url==='/api/image')return json(res,200,tonyAIProvider.generateImage(await body(req)));
- if(req.method==='POST'&&req.url==='/api/search'){const b=await body(req);if(!b.query)return json(res,400,{error:'query is required'});return json(res,200,await duckduckgoSearch(b.query,{maxResults:b.maxResults||8,region:b.region||process.env.DUCKDUCKGO_REGION||'wt-wt',safeSearch:b.safeSearch||process.env.DUCKDUCKGO_SAFESEARCH||'moderate'}));}
- if(req.method==='POST'&&req.url==='/api/files'){const b=await body(req);const files=Array.isArray(b.files)?b.files:[];if(!files.length)return json(res,400,{error:'files array is required'});if(files.length>50)return json(res,400,{error:'Maximum 50 files per artifact request'});return json(res,200,generateArtifacts({files,zip:b.zip===true,zipName:b.zipName||'tony-downloads.zip'}));}
- if(req.method==='GET'&&req.url==='/api/capabilities')return json(res,200,{...assistant.capabilities(),functionalReplica:true,binaryReplacement:binaryReplacementStatus(),localBrain:true,localLanguageModel:true,largeJavaScriptLM:true,largeJavaScriptLMParameters:LARGE_JS_LM_PARAMETER_CAPACITY,largeJavaScriptLMParameterMode:'virtual-sparse-capacity',largeJavaScriptLMPrimaryBackbone:'pure-javascript',largeJavaScriptLMPretrainedRequired:false,largeJavaScriptLMExternalNeuralModel:false,largeJavaScriptLMExternalGenerationAPI:false,openAIRequired:false,provider:tonyAIProvider.capabilities(),pureJavaScriptMode:true,externalSearchEnabled:true,externalImageGenerationEnabled:true,chatPrimary:'large-js-primary',chatToolOrchestration:true,performance:{keepAlive:true,immutableEngineAssets:true,cachedInferenceHotPaths:true}});
- if(req.method==='GET'&&req.url==='/api/large-js-stats')return json(res,200,largeJavaScriptLM.stats());
- if(req.method==='GET'&&req.url==='/runtime.js')return textAsset(res,'web-runtime.js');
- if(req.method==='GET'&&req.url==='/engine/neural-training-data.js')return textAsset(res,'neural-training-data.js');
- if(req.method==='GET'&&req.url==='/engine/neural-language-model.js')return textAsset(res,'neural-language-model.js');
- if(req.method==='GET'&&req.url==='/engine/large-js-lm.js')return textAsset(res,'large-js-lm.js');
- if(req.method==='GET'&&req.url==='/engine/large-js-chat.js')return textAsset(res,'large-js-chat.js');
- if(req.method==='GET'&&req.url==='/engine/tonyai-provider.js')return textAsset(res,'tonyai-provider.js');
- if(req.method==='GET'&&(req.url==='/'||req.url==='/index.html')){const html=await readFile(path.join(root,'index.html'),'utf8');const runtime=await readFile(path.join(root,'engine','web-runtime.js'),'utf8');const local=await readFile(path.join(root,'engine','local-brain.js'),'utf8');const large=await readFile(path.join(root,'engine','large-js-lm.js'),'utf8');const injected=`<script>${runtime}</script><script>${local}</script><script type="module">${large}</script>`;res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'public, max-age=60','connection':'keep-alive'});return res.end(html.replace('</body>',`${injected}</body>`));}
- if(req.method==='GET'&&req.url==='/health')return json(res,200,{ok:true,service:'TONY',pureJavaScriptMode:true,largeJavaScriptLM:true,largeJavaScriptLMParameters:LARGE_JS_LM_PARAMETER_CAPACITY,largeJavaScriptLMParameterMode:'virtual-sparse-capacity',largeJavaScriptLMPrimaryBackbone:'pure-javascript',largeJavaScriptLMPretrainedRequired:false,largeJavaScriptLMExternalNeuralModel:false,externalSearchEnabled:true,externalImageGenerationEnabled:true,openAIRequired:false,provider:tonyAIProvider.capabilities(),chatPrimary:'large-js-primary',performance:{keepAlive:true,immutableEngineAssets:true,cachedInferenceHotPaths:true}});
- return json(res,404,{error:'Not found'});
-}catch(e){return json(res,500,{error:String(e.message||e)});}}
-const server=http.createServer({keepAlive:true,headersTimeout:10000,requestTimeout:30000},handler);server.keepAliveTimeout=5000;server.listen(port,()=>console.log(`TONY Ultimate AI listening on http://localhost:${port}`));process.on('SIGINT',async()=>{await assistant.close();process.exit(0)});process.on('SIGTERM',async()=>{await assistant.close();process.exit(0)});
+async function asset(file){if(!assetCache.has(file))assetCache.set(file,readFile(path.join(root,'engine',file)));return assetCache.get(file);}
+async function textAsset(res,file,req){
+ const data=await asset(file);send(res,200,data,{'content-type':'text/javascript; charset=utf-8','cache-control':`public, max-age=${CACHE_MAX_AGE}, immutable`},req);
+}
+async function page(){
+ if(!pageCache.has('html')){
+  const html=await readFile(path.join(root,'index.html'),'utf8');
+  const [runtime,local,large]=await Promise.all([asset('web-runtime.js'),asset('local-brain.js'),asset('large-js-lm.js')]);
+  const injected=`<script>${runtime.toString()}</script><script>${local.toString()}</script><script type="module">${large.toString()}</script>`;
+  pageCache.set('html',Buffer.from(html.replace('</body>',`${injected}</body>`)));
+ }
+ return pageCache.get('html');
+}
+async function handler(req,res){
+ const started=performance.now();
+ try{
+  if(req.method==='POST'&&req.url==='/api/chat'){
+   const result=await Promise.race([largeJSChat(await body(req),assistant),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Chat request exceeded 2 second response budget')),CHAT_TIMEOUT_MS))]);
+   return json(res,200,materializeChatArtifacts(result),req);
+  }
+  if(req.method==='POST'&&req.url==='/api/replica')return json(res,200,replicate(await body(req)),req);
+  if(req.method==='POST'&&req.url==='/api/binary-replacement')return json(res,200,binaryReplacement(await body(req)),req);
+  if(req.method==='POST'&&req.url==='/api/local-chat'){const b=await body(req);return json(res,200,localBrain.answer(b.message||''),req);}
+  if(req.method==='POST'&&req.url==='/api/large-js-chat')return json(res,200,await largeJSChat(await body(req),assistant),req);
+  if(req.method==='POST'&&req.url==='/api/large-js-learn'){const b=await body(req);return json(res,200,largeJavaScriptLM.learn(b.text||'',b.options||{}),req);}
+  if(req.method==='POST'&&req.url==='/api/large-js-knowledge'){const b=await body(req);return json(res,200,{entries:largeJavaScriptLM.addKnowledge(b.entries||[]),stats:largeJavaScriptLM.stats()},req);}
+  if(req.method==='POST'&&req.url==='/api/image')return json(res,200,tonyAIProvider.generateImage(await body(req)),req);
+  if(req.method==='POST'&&req.url==='/api/search'){const b=await body(req);if(!b.query)return json(res,400,{error:'query is required'},req);return json(res,200,await duckduckgoSearch(b.query,{maxResults:b.maxResults||8,region:b.region||process.env.DUCKDUCKGO_REGION||'wt-wt',safeSearch:b.safeSearch||process.env.DUCKDUCKGO_SAFESEARCH||'moderate'}),req);}
+  if(req.method==='POST'&&req.url==='/api/files'){const b=await body(req);const files=Array.isArray(b.files)?b.files:[];if(!files.length)return json(res,400,{error:'files array is required'},req);if(files.length>50)return json(res,400,{error:'Maximum 50 files per artifact request'},req);return json(res,200,generateArtifacts({files,zip:b.zip===true,zipName:b.zipName||'tony-downloads.zip'}),req);}
+  if(req.method==='GET'&&req.url==='/api/capabilities')return json(res,200,{...assistant.capabilities(),functionalReplica:true,binaryReplacement:binaryReplacementStatus(),localBrain:true,localLanguageModel:true,largeJavaScriptLM:true,largeJavaScriptLMParameters:LARGE_JS_LM_PARAMETER_CAPACITY,largeJavaScriptLMParameterMode:'virtual-sparse-capacity',largeJavaScriptLMPrimaryBackbone:'pure-javascript',largeJavaScriptLMPretrainedRequired:false,largeJavaScriptLMExternalNeuralModel:false,largeJavaScriptLMExternalGenerationAPI:false,openAIRequired:false,provider:tonyAIProvider.capabilities(),pureJavaScriptMode:true,externalSearchEnabled:true,externalImageGenerationEnabled:true,chatPrimary:'large-js-primary',chatToolOrchestration:true,performance:{keepAlive:true,immutableEngineAssets:true,cachedInferenceHotPaths:true,compressedResponses:true,pageCache:true,chatResponseBudgetMs:CHAT_TIMEOUT_MS}},req,'public, max-age=30, stale-while-revalidate=300');
+  if(req.method==='GET'&&req.url==='/api/large-js-stats')return json(res,200,largeJavaScriptLM.stats(),req,'public, max-age=10, stale-while-revalidate=60');
+  if(req.method==='GET'&&req.url==='/runtime.js')return textAsset(res,'web-runtime.js',req);
+  if(req.method==='GET'&&req.url==='/engine/neural-training-data.js')return textAsset(res,'neural-training-data.js',req);
+  if(req.method==='GET'&&req.url==='/engine/neural-language-model.js')return textAsset(res,'neural-language-model.js',req);
+  if(req.method==='GET'&&req.url==='/engine/large-js-lm.js')return textAsset(res,'large-js-lm.js',req);
+  if(req.method==='GET'&&req.url==='/engine/large-js-chat.js')return textAsset(res,'large-js-chat.js',req);
+  if(req.method==='GET'&&req.url==='/engine/tonyai-provider.js')return textAsset(res,'tonyai-provider.js',req);
+  if(req.method==='GET'&&(req.url==='/'||req.url==='/index.html'))return send(res,200,await page(),{'content-type':'text/html; charset=utf-8','cache-control':`public, max-age=${PAGE_MAX_AGE}, stale-while-revalidate=600`},req);
+  if(req.method==='GET'&&req.url==='/health')return json(res,200,{ok:true,service:'TONY',pureJavaScriptMode:true,largeJavaScriptLM:true,largeJavaScriptLMParameters:LARGE_JS_LM_PARAMETER_CAPACITY,largeJavaScriptLMParameterMode:'virtual-sparse-capacity',largeJavaScriptLMPrimaryBackbone:'pure-javascript',largeJavaScriptLMPretrainedRequired:false,largeJavaScriptLMExternalNeuralModel:false,externalSearchEnabled:true,externalImageGenerationEnabled:true,openAIRequired:false,provider:tonyAIProvider.capabilities(),chatPrimary:'large-js-primary',performance:{keepAlive:true,immutableEngineAssets:true,cachedInferenceHotPaths:true,compressedResponses:true,pageCache:true,chatResponseBudgetMs:CHAT_TIMEOUT_MS}},req,'public, max-age=5, stale-while-revalidate=30');
+  return json(res,404,{error:'Not found'},req);
+ }catch(e){return json(res,e?.message?.includes('2 second response budget')?504:500,{error:String(e.message||e),performance:{budgetMs:CHAT_TIMEOUT_MS,elapsedMs:Math.round(performance.now()-started)}},req);}
+}
+
+const server=http.createServer({keepAlive:true,headersTimeout:10000,requestTimeout:10000},handler);
+server.keepAliveTimeout=5000;
+server.headersTimeout=10000;
+server.requestTimeout=10000;
+server.listen(port,()=>console.log(`TONY Ultimate AI listening on http://localhost:${port}`));
+process.on('SIGINT',async()=>{await assistant.close();process.exit(0)});
+process.on('SIGTERM',async()=>{await assistant.close();process.exit(0)});
