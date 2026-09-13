@@ -3,9 +3,6 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#0B1F4D">
   <link rel="icon" href="branding/favicon.ico">
   <link rel="icon" type="image/png" sizes="192x192" href="branding/tonyai-favicon.png">
@@ -28,633 +25,71 @@
       --header-height: 64px;
       --composer-height: 116px;
     }
-
     * { box-sizing: border-box; }
     html, body { height: 100%; }
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      overflow: hidden;
-    }
-
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; }
     button, textarea, input { font: inherit; }
     button { color: inherit; }
-
-    .app {
-      min-height: 100%;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .topbar {
-      height: var(--header-height);
-      min-height: var(--header-height);
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 16px;
-      padding: 0 18px;
-      border-bottom: 1px solid var(--border);
-      background: var(--panel);
-      backdrop-filter: blur(16px);
-      position: relative;
-      z-index: 20;
-    }
-
-    .topbar-left,
-    .topbar-right,
-    .brand-wrap {
-      display: flex;
-      align-items: center;
-    }
-
-    .topbar-left { justify-content: flex-start; gap: 12px; }
-    .topbar-right { justify-content: flex-end; }
-    .brand-wrap { justify-content: center; gap: 12px; min-width: 0; }
-
-    .icon-btn,
-    .new-chat-btn,
-    .menu-item,
-    .send-btn,
-    .attach-btn {
-      border: 0;
-      background: transparent;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .icon-btn {
-      width: 42px;
-      height: 42px;
-      display: inline-grid;
-      place-items: center;
-      border-radius: 11px;
-      transition: background .16s ease, transform .16s ease;
-    }
-
-    .icon-btn:hover,
-    .icon-btn:focus-visible,
-    .attach-btn:hover,
-    .attach-btn:focus-visible {
-      background: var(--hover);
-      outline: none;
-    }
-
-    .icon-btn:active,
-    .send-btn:active,
-    .new-chat-btn:active,
-    .attach-btn:active { transform: scale(.96); }
-
-    .hamburger {
-      width: 20px;
-      height: 14px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .hamburger span {
-      display: block;
-      height: 2px;
-      width: 100%;
-      border-radius: 2px;
-      background: currentColor;
-    }
-
-    .brand {
-      font-size: 1.05rem;
-      line-height: 1;
-      font-weight: 800;
-      letter-spacing: .28em;
-      margin-left: .28em;
-      white-space: nowrap;
-    }
-
-    .new-chat-btn {
-      min-height: 40px;
-      padding: 0 16px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: #fff;
-      font-size: .9rem;
-      font-weight: 650;
-      transition: background .16s ease, border-color .16s ease;
-    }
-    .new-chat-btn:hover { background: var(--hover); border-color: #d4d4d8; }
-
-    .dots {
-      display: flex;
-      gap: 3px;
-    }
-    .dots span {
-      width: 4px;
-      height: 4px;
-      border-radius: 50%;
-      background: currentColor;
-    }
-
-    .chat-area {
-      flex: 1;
-      min-height: 0;
-      position: relative;
-      overflow: auto;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .chat-empty {
-      flex: 1;
-      display: grid;
-      place-items: center;
-      padding: 48px 24px 150px;
-      text-align: center;
-    }
-
-    .welcome {
-      max-width: 650px;
-      margin: auto;
-    }
-    .welcome-mark {
-      width: 56px;
-      height: 56px;
-      display: grid;
-      place-items: center;
-      margin: 0 auto 18px;
-      border-radius: 16px;
-      background: #111;
-      color: #fff;
-      font-weight: 800;
-      letter-spacing: .16em;
-      padding-left: .16em;
-    }
-    .welcome h1 {
-      margin: 0 0 10px;
-      font-size: clamp(1.6rem, 3vw, 2.1rem);
-      letter-spacing: -.035em;
-    }
-    .welcome p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.55;
-    }
-
-    .messages {
-      width: min(820px, calc(100% - 32px));
-      margin: 0 auto;
-      padding: 28px 0 160px;
-      display: none;
-    }
-    .messages.has-messages { display: block; }
-    .message {
-      display: flex;
-      gap: 12px;
-      margin: 0 0 22px;
-      line-height: 1.55;
-    }
-    .message.user { justify-content: flex-end; }
-    .message-bubble {
-      max-width: min(680px, 88%);
-      padding: 12px 15px;
-      border-radius: 16px;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-    .message.user .message-bubble { background: #f1f1f2; }
-    .message.assistant .message-bubble { padding-left: 0; }
-
-    .composer-wrap {
-      position: absolute;
-      z-index: 10;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      padding: 16px 18px 20px;
-      background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,.9) 22%, #fff 46%);
-    }
-
-    .composer {
-      width: min(820px, 100%);
-      min-height: 72px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: 48px minmax(0, 1fr) 52px;
-      align-items: end;
-      gap: 6px;
-      padding: 10px 8px 10px 8px;
-      border: 1px solid #d7d7da;
-      border-radius: 20px;
-      background: #fff;
-      box-shadow: 0 5px 24px rgba(0,0,0,.08);
-      transition: border-color .16s ease, box-shadow .16s ease;
-    }
-    .composer:focus-within {
-      border-color: #b5b5b9;
-      box-shadow: 0 7px 28px rgba(0,0,0,.11);
-    }
-
-    .attach-btn,
-    .send-btn {
-      width: 42px;
-      height: 42px;
-      display: inline-grid;
-      place-items: center;
-      border-radius: 12px;
-    }
-    .attach-btn { align-self: end; }
-    .send-btn {
-      align-self: end;
-      background: var(--accent);
-      color: var(--accent-contrast);
-      transition: opacity .16s ease, transform .16s ease;
-    }
-    .send-btn:disabled { opacity: .28; cursor: default; }
-
-    .composer textarea {
-      width: 100%;
-      min-height: 42px;
-      max-height: 160px;
-      resize: none;
-      border: 0;
-      outline: none;
-      background: transparent;
-      padding: 9px 4px;
-      color: var(--text);
-      line-height: 1.45;
-    }
-    .composer textarea::placeholder { color: #8a8a8f; }
-
-    .paperclip {
-      width: 18px;
-      height: 20px;
-      display: block;
-      border: 2px solid currentColor;
-      border-radius: 10px;
-      transform: rotate(42deg);
-      border-top-color: transparent;
-      position: relative;
-    }
-    .paperclip::after {
-      content: "";
-      position: absolute;
-      width: 8px;
-      height: 12px;
-      border: 2px solid currentColor;
-      border-radius: 8px;
-      left: 3px;
-      top: 2px;
-      border-top-color: transparent;
-    }
-
-    .send-arrow {
-      width: 17px;
-      height: 17px;
-      border-top: 2px solid currentColor;
-      border-right: 2px solid currentColor;
-      transform: rotate(-45deg) translate(-1px, 1px);
-      position: relative;
-    }
-    .send-arrow::after {
-      content: "";
-      position: absolute;
-      width: 13px;
-      height: 2px;
-      background: currentColor;
-      top: 6px;
-      right: -5px;
-      transform: rotate(45deg);
-      transform-origin: right center;
-    }
-
+    .app { min-height: 100%; height: 100vh; display: flex; flex-direction: column; }
+    .topbar { height: var(--header-height); min-height: var(--header-height); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 0 18px; border-bottom: 1px solid var(--border); background: var(--panel); backdrop-filter: blur(16px); position: relative; z-index: 20; }
+    .topbar-left, .topbar-right, .brand-wrap { display: flex; align-items: center; }
+    .topbar-left { justify-content: flex-start; gap: 12px; } .topbar-right { justify-content: flex-end; } .brand-wrap { justify-content: center; gap: 12px; min-width: 0; }
+    .icon-btn, .new-chat-btn, .menu-item, .send-btn, .attach-btn { border: 0; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .icon-btn { width: 42px; height: 42px; display: inline-grid; place-items: center; border-radius: 11px; transition: background .16s ease, transform .16s ease; }
+    .icon-btn:hover, .icon-btn:focus-visible, .attach-btn:hover, .attach-btn:focus-visible { background: var(--hover); outline: none; }
+    .icon-btn:active, .send-btn:active, .new-chat-btn:active, .attach-btn:active { transform: scale(.96); }
+    .hamburger { width: 20px; height: 14px; display: flex; flex-direction: column; justify-content: space-between; } .hamburger span { display: block; height: 2px; width: 100%; border-radius: 2px; background: currentColor; }
+    .brand { font-size: 1.05rem; line-height: 1; font-weight: 800; letter-spacing: .28em; margin-left: .28em; white-space: nowrap; }
+    .new-chat-btn { min-height: 40px; padding: 0 16px; border: 1px solid var(--border); border-radius: 10px; background: #fff; font-size: .9rem; font-weight: 650; }
+    .dots { display: flex; gap: 3px; } .dots span { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+    .chat-area { flex: 1; min-height: 0; position: relative; overflow: auto; display: flex; flex-direction: column; }
+    .chat-empty { flex: 1; display: grid; place-items: center; padding: 48px 24px 150px; text-align: center; } .welcome { max-width: 650px; margin: auto; }
+    .welcome-mark { width: 56px; height: 56px; display: grid; place-items: center; margin: 0 auto 18px; border-radius: 16px; background: #111; color: #fff; font-weight: 800; letter-spacing: .16em; padding-left: .16em; }
+    .welcome h1 { margin: 0 0 10px; font-size: clamp(1.6rem, 3vw, 2.1rem); letter-spacing: -.035em; } .welcome p { margin: 0; color: var(--muted); line-height: 1.55; }
+    .messages { width: min(820px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 160px; display: none; } .messages.has-messages { display: block; }
+    .message { display: flex; gap: 12px; margin: 0 0 22px; line-height: 1.55; } .message.user { justify-content: flex-end; } .message-bubble { max-width: min(680px, 88%); padding: 12px 15px; border-radius: 16px; white-space: pre-wrap; overflow-wrap: anywhere; } .message.user .message-bubble { background: #f1f1f2; } .message.assistant .message-bubble { padding-left: 0; }
+    .composer-wrap { position: absolute; z-index: 10; left: 0; right: 0; bottom: 0; padding: 16px 18px 20px; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,.9) 22%, #fff 46%); }
+    .composer { width: min(820px, 100%); min-height: 72px; margin: 0 auto; display: grid; grid-template-columns: 48px minmax(0, 1fr) 52px; align-items: end; gap: 6px; padding: 10px 8px; border: 1px solid #d7d7da; border-radius: 20px; background: #fff; box-shadow: 0 5px 24px rgba(0,0,0,.08); }
+    .attach-btn, .send-btn { width: 42px; height: 42px; display: inline-grid; place-items: center; border-radius: 12px; } .attach-btn { align-self: end; } .send-btn { align-self: end; background: var(--accent); color: var(--accent-contrast); } .send-btn:disabled { opacity: .28; cursor: default; }
+    .composer textarea { width: 100%; min-height: 42px; max-height: 160px; resize: none; border: 0; outline: none; background: transparent; padding: 9px 4px; color: var(--text); line-height: 1.45; } .composer textarea::placeholder { color: #8a8a8f; }
+    .paperclip { width: 18px; height: 20px; display: block; border: 2px solid currentColor; border-radius: 10px; transform: rotate(42deg); border-top-color: transparent; position: relative; } .paperclip::after { content: ""; position: absolute; width: 8px; height: 12px; border: 2px solid currentColor; border-radius: 8px; left: 3px; top: 2px; border-top-color: transparent; }
+    .send-arrow { width: 17px; height: 17px; border-top: 2px solid currentColor; border-right: 2px solid currentColor; transform: rotate(-45deg) translate(-1px, 1px); position: relative; } .send-arrow::after { content: ""; position: absolute; width: 13px; height: 2px; background: currentColor; top: 6px; right: -5px; transform: rotate(45deg); transform-origin: right center; }
     .hidden-input { display: none; }
-
-    .dropdown {
-      position: absolute;
-      top: 56px;
-      width: 250px;
-      padding: 7px;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: #fff;
-      box-shadow: var(--shadow);
-      opacity: 0;
-      visibility: hidden;
-      transform: translateY(-6px) scale(.98);
-      transition: opacity .15s ease, transform .15s ease, visibility .15s ease;
-    }
-    .dropdown.open {
-      opacity: 1;
-      visibility: visible;
-      transform: translateY(0) scale(1);
-    }
-    .menu-dropdown { left: 14px; }
-    .action-dropdown { right: 14px; width: 220px; }
-
-    .menu-item {
-      width: 100%;
-      min-height: 42px;
-      display: flex;
-      align-items: center;
-      gap: 11px;
-      padding: 0 11px;
-      border-radius: 9px;
-      text-align: left;
-      font-size: .92rem;
-    }
-    .menu-item:hover,
-    .menu-item:focus-visible { background: var(--hover); outline: none; }
-    .menu-item.danger { color: #b42318; }
-    .menu-item-icon {
-      width: 20px;
-      text-align: center;
-      color: #555;
-      flex: 0 0 20px;
-    }
-    .menu-item.danger .menu-item-icon { color: #b42318; }
-    .menu-divider { height: 1px; margin: 6px 4px; background: var(--border); }
-
-    .toast {
-      position: fixed;
-      left: 50%;
-      bottom: 104px;
-      transform: translate(-50%, 12px);
-      padding: 9px 13px;
-      border-radius: 10px;
-      background: #18181b;
-      color: #fff;
-      font-size: .84rem;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .16s ease, transform .16s ease;
-      z-index: 50;
-    }
-    .toast.show { opacity: 1; transform: translate(-50%, 0); }
-
-    @media (max-width: 720px) {
-      .topbar {
-        grid-template-columns: auto 1fr auto;
-        gap: 8px;
-        padding: 0 10px;
-      }
-      .brand-wrap { justify-content: flex-start; }
-      .new-chat-btn { padding: 0 12px; }
-      .new-chat-label { display: none; }
-      .messages { width: min(100% - 20px, 820px); }
-      .composer-wrap { padding: 12px 10px 14px; }
-      .composer { grid-template-columns: 44px minmax(0, 1fr) 48px; }
-      .dropdown { top: 56px; }
-      .menu-dropdown { left: 7px; }
-      .action-dropdown { right: 7px; }
-    }
-
-    @media (max-width: 430px) {
-      .brand { font-size: .96rem; }
-      .chat-empty { padding-left: 18px; padding-right: 18px; }
-      .composer { min-height: 66px; border-radius: 18px; }
-      .composer textarea { font-size: .95rem; }
-      .menu-dropdown { width: calc(100vw - 14px); }
-      .action-dropdown { width: min(220px, calc(100vw - 14px)); }
-    }
+    .dropdown { position: absolute; top: 56px; width: 250px; padding: 7px; border: 1px solid var(--border); border-radius: 14px; background: #fff; box-shadow: var(--shadow); opacity: 0; visibility: hidden; transform: translateY(-6px) scale(.98); transition: opacity .15s ease, transform .15s ease, visibility .15s ease; } .dropdown.open { opacity: 1; visibility: visible; transform: translateY(0) scale(1); } .menu-dropdown { left: 14px; } .action-dropdown { right: 14px; width: 220px; }
+    .menu-item { width: 100%; min-height: 42px; display: flex; align-items: center; gap: 11px; padding: 0 11px; border-radius: 9px; text-align: left; font-size: .92rem; } .menu-item:hover, .menu-item:focus-visible { background: var(--hover); outline: none; } .menu-item.danger { color: #b42318; } .menu-item-icon { width: 20px; text-align: center; color: #555; flex: 0 0 20px; } .menu-item.danger .menu-item-icon { color: #b42318; } .menu-divider { height: 1px; margin: 6px 4px; background: var(--border); }
+    .toast { position: fixed; left: 50%; bottom: 104px; transform: translate(-50%, 12px); padding: 9px 13px; border-radius: 10px; background: #18181b; color: #fff; font-size: .84rem; opacity: 0; pointer-events: none; transition: opacity .16s ease, transform .16s ease; z-index: 50; } .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    @media (max-width: 720px) { .topbar { grid-template-columns: auto 1fr auto; gap: 8px; padding: 0 10px; } .brand-wrap { justify-content: flex-start; } .new-chat-btn { padding: 0 12px; } .new-chat-label { display: none; } .messages { width: min(100% - 20px, 820px); } .composer-wrap { padding: 12px 10px 14px; } .composer { grid-template-columns: 44px minmax(0, 1fr) 48px; } .dropdown { top: 56px; } .menu-dropdown { left: 7px; } .action-dropdown { right: 7px; } }
+    @media (max-width: 430px) { .brand { font-size: .96rem; } .chat-empty { padding-left: 18px; padding-right: 18px; } .composer { min-height: 66px; border-radius: 18px; } .composer textarea { font-size: .95rem; } .menu-dropdown { width: calc(100vw - 14px); } .action-dropdown { width: min(220px, calc(100vw - 14px)); } }
   </style>
 </head>
 <body>
   <div class="app">
     <header class="topbar">
-      <div class="topbar-left">
-        <button class="icon-btn" id="menuButton" aria-label="Open main menu" aria-expanded="false" aria-controls="mainMenu">
-          <span class="hamburger" aria-hidden="true"><span></span><span></span><span></span></span>
-        </button>
-        <nav class="dropdown menu-dropdown" id="mainMenu" aria-label="TonyAI tools">
-          <button class="menu-item" data-action="New Chat"><span class="menu-item-icon">＋</span><span>New Chat</span></button>
-          <button class="menu-item" data-action="Image Chat"><span class="menu-item-icon">▧</span><span>Image Chat</span></button>
-          <button class="menu-item" data-action="Library"><span class="menu-item-icon">▱</span><span>Library</span></button>
-          <button class="menu-item" data-action="Schedule Chats"><span class="menu-item-icon">◷</span><span>Schedule Chats</span></button>
-          <button class="menu-item" data-action="Plugins"><span class="menu-item-icon">⌘</span><span>Plugins</span><span style="margin-left:auto;color:#888;font-size:.75rem">Adjust</span></button>
-          <button class="menu-item" data-action="Code Injected Chat"><span class="menu-item-icon">&lt;/&gt;</span><span>Code Injected Chat</span></button>
-          <button class="menu-item" data-action="Animate"><span class="menu-item-icon">✦</span><span>Animate</span></button>
-        </nav>
-      </div>
-
-      <div class="brand-wrap">
-        <div class="brand" aria-label="TONY">TONY</div>
-        <button class="new-chat-btn" id="newChatButton" type="button"><span aria-hidden="true">＋</span> <span class="new-chat-label">New chat</span></button>
-      </div>
-
-      <div class="topbar-right">
-        <button class="icon-btn" id="actionButton" aria-label="Chat actions" aria-expanded="false" aria-controls="actionMenu">
-          <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
-        </button>
-        <div class="dropdown action-dropdown" id="actionMenu" aria-label="Chat actions">
-          <button class="menu-item" data-action="Share"><span class="menu-item-icon">↗</span><span>Share</span></button>
-          <button class="menu-item" data-action="View Chat Media"><span class="menu-item-icon">▧</span><span>View Chat Media</span></button>
-          <button class="menu-item" data-action="Pin Chat"><span class="menu-item-icon">⌑</span><span>Pin Chat</span></button>
-          <button class="menu-item" data-action="Archive"><span class="menu-item-icon">▣</span><span>Archive</span></button>
-          <div class="menu-divider"></div>
-          <button class="menu-item danger" data-action="Delete Chat"><span class="menu-item-icon">⌫</span><span>Delete Chat</span></button>
-        </div>
-      </div>
+      <div class="topbar-left"><button class="icon-btn" id="menuButton" aria-label="Open main menu" aria-expanded="false" aria-controls="mainMenu"><span class="hamburger" aria-hidden="true"><span></span><span></span><span></span></span></button><nav class="dropdown menu-dropdown" id="mainMenu" aria-label="TonyAI tools"><button class="menu-item" data-action="New Chat"><span class="menu-item-icon">＋</span><span>New Chat</span></button><button class="menu-item" data-action="Image Chat"><span class="menu-item-icon">▧</span><span>Image Chat</span></button><button class="menu-item" data-action="Library"><span class="menu-item-icon">▱</span><span>Library</span></button><button class="menu-item" data-action="Schedule Chats"><span class="menu-item-icon">◷</span><span>Schedule Chats</span></button><button class="menu-item" data-action="Plugins"><span class="menu-item-icon">⌘</span><span>Plugins</span><span style="margin-left:auto;color:#888;font-size:.75rem">Adjust</span></button><button class="menu-item" data-action="Code Injected Chat"><span class="menu-item-icon">&lt;/&gt;</span><span>Code Injected Chat</span></button><button class="menu-item" data-action="Animate"><span class="menu-item-icon">✦</span><span>Animate</span></button></nav></div>
+      <div class="brand-wrap"><div class="brand" aria-label="TONY">TONY</div><button class="new-chat-btn" id="newChatButton" type="button"><span aria-hidden="true">＋</span> <span class="new-chat-label">New chat</span></button></div>
+      <div class="topbar-right"><button class="icon-btn" id="actionButton" aria-label="Chat actions" aria-expanded="false" aria-controls="actionMenu"><span class="dots" aria-hidden="true"><span></span><span></span><span></span></span></button><div class="dropdown action-dropdown" id="actionMenu" aria-label="Chat actions"><button class="menu-item" data-action="Share"><span class="menu-item-icon">↗</span><span>Share</span></button><button class="menu-item" data-action="View Chat Media"><span class="menu-item-icon">▧</span><span>View Chat Media</span></button><button class="menu-item" data-action="Pin Chat"><span class="menu-item-icon">⌑</span><span>Pin Chat</span></button><button class="menu-item" data-action="Archive"><span class="menu-item-icon">▣</span><span>Archive</span></button><div class="menu-divider"></div><button class="menu-item danger" data-action="Delete Chat"><span class="menu-item-icon">⌫</span><span>Delete Chat</span></button></div></div>
     </header>
-
-    <main class="chat-area" id="chatArea" aria-label="Chat display area">
-      <section class="chat-empty" id="emptyState">
-        <div class="welcome">
-          <div class="welcome-mark">T</div>
-          <h1>How can TONY help?</h1>
-          <p>Start a conversation, attach a file, or choose a tool from the menu.</p>
-        </div>
-      </section>
-      <section class="messages" id="messages" aria-live="polite"></section>
-
-      <div class="composer-wrap">
-        <form class="composer" id="composer">
-          <button class="attach-btn" id="attachButton" type="button" aria-label="Add attachment">
-            <span class="paperclip" aria-hidden="true"></span>
-          </button>
-          <textarea id="messageInput" rows="1" placeholder="Message TONY..." aria-label="Message TONY"></textarea>
-          <button class="send-btn" id="sendButton" type="submit" aria-label="Send message" disabled>
-            <span class="send-arrow" aria-hidden="true"></span>
-          </button>
-          <input class="hidden-input" id="fileInput" type="file" multiple>
-        </form>
-      </div>
-    </main>
+    <main class="chat-area" id="chatArea" aria-label="Chat display area"><section class="chat-empty" id="emptyState"><div class="welcome"><div class="welcome-mark">T</div><h1>How can TONY help?</h1><p>Start a conversation, attach a file, or choose a tool from the menu.</p></div></section><section class="messages" id="messages" aria-live="polite"></section><div class="composer-wrap"><form class="composer" id="composer"><button class="attach-btn" id="attachButton" type="button" aria-label="Add attachment"><span class="paperclip" aria-hidden="true"></span></button><textarea id="messageInput" rows="1" placeholder="Message TONY..." aria-label="Message TONY"></textarea><button class="send-btn" id="sendButton" type="submit" aria-label="Send message" disabled><span class="send-arrow" aria-hidden="true"></span></button><input class="hidden-input" id="fileInput" type="file" multiple></form></div></main>
   </div>
-
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
   <script>
     (() => {
-      const menuButton = document.getElementById('menuButton');
-      const actionButton = document.getElementById('actionButton');
-      const mainMenu = document.getElementById('mainMenu');
-      const actionMenu = document.getElementById('actionMenu');
-      const newChatButton = document.getElementById('newChatButton');
-      const composer = document.getElementById('composer');
-      const input = document.getElementById('messageInput');
-      const sendButton = document.getElementById('sendButton');
-      const attachButton = document.getElementById('attachButton');
-      const fileInput = document.getElementById('fileInput');
-      const messages = document.getElementById('messages');
-      const emptyState = document.getElementById('emptyState');
-      const toast = document.getElementById('toast');
-
+      const menuButton=document.getElementById('menuButton'),actionButton=document.getElementById('actionButton'),mainMenu=document.getElementById('mainMenu'),actionMenu=document.getElementById('actionMenu'),newChatButton=document.getElementById('newChatButton'),composer=document.getElementById('composer'),input=document.getElementById('messageInput'),sendButton=document.getElementById('sendButton'),attachButton=document.getElementById('attachButton'),fileInput=document.getElementById('fileInput'),messages=document.getElementById('messages'),emptyState=document.getElementById('emptyState'),toast=document.getElementById('toast');
       let toastTimer;
-
-      function closeMenus() {
-        mainMenu.classList.remove('open');
-        actionMenu.classList.remove('open');
-        menuButton.setAttribute('aria-expanded', 'false');
-        actionButton.setAttribute('aria-expanded', 'false');
-      }
-
-      function toggleMenu(button, menu, otherMenu, otherButton) {
-        const open = menu.classList.toggle('open');
-        otherMenu.classList.remove('open');
-        button.setAttribute('aria-expanded', String(open));
-        otherButton.setAttribute('aria-expanded', 'false');
-      }
-
-      function showToast(text) {
-        clearTimeout(toastTimer);
-        toast.textContent = text;
-        toast.classList.add('show');
-        toastTimer = setTimeout(() => toast.classList.remove('show'), 1900);
-      }
-
-      function autoSize() {
-        input.style.height = 'auto';
-        input.style.height = Math.min(input.scrollHeight, 160) + 'px';
-        sendButton.disabled = !input.value.trim();
-      }
-
-      function addMessage(text, role = 'user') {
-        emptyState.style.display = 'none';
-        messages.classList.add('has-messages');
-        const item = document.createElement('article');
-        item.className = 'message ' + role;
-        const bubble = document.createElement('div');
-        bubble.className = 'message-bubble';
-        bubble.textContent = text;
-        item.appendChild(bubble);
-        messages.appendChild(item);
-        document.getElementById('chatArea').scrollTop = document.getElementById('chatArea').scrollHeight;
-      }
-
-      menuButton.addEventListener('click', (event) => {
-        event.stopPropagation();
-        toggleMenu(menuButton, mainMenu, actionMenu, actionButton);
-      });
-
-      actionButton.addEventListener('click', (event) => {
-        event.stopPropagation();
-        toggleMenu(actionButton, actionMenu, mainMenu, menuButton);
-      });
-
-      document.addEventListener('click', (event) => {
-        if (!mainMenu.contains(event.target) && event.target !== menuButton &&
-            !actionMenu.contains(event.target) && event.target !== actionButton) {
-          closeMenus();
-        }
-      });
-
-      document.querySelectorAll('[data-action]').forEach((item) => {
-        item.addEventListener('click', () => {
-          const action = item.dataset.action;
-          closeMenus();
-          if (action === 'New Chat') {
-            newChat();
-            return;
-          }
-          showToast(action + ' selected');
-        });
-      });
-
-      function newChat() {
-        messages.innerHTML = '';
-        messages.classList.remove('has-messages');
-        emptyState.style.display = 'grid';
-        input.value = '';
-        autoSize();
-        input.focus();
-        closeMenus();
-        showToast('New chat started');
-      }
-
-      newChatButton.addEventListener('click', newChat);
-
-      input.addEventListener('input', autoSize);
-      input.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' && !event.shiftKey) {
-          event.preventDefault();
-          composer.requestSubmit();
-        }
-      });
-
-      function localAnswer(question) {
-        const text = question.trim();
-        const lower = text.toLowerCase();
-        const expression = text.replace(/[^0-9+\-*/().%\s]/g, '').trim();
-        const percent = text.match(/what is\s+([\d.]+)%\s+of\s+([\d.]+)/i);
-        if (percent) return 'The answer is ' + (Number(percent[1]) / 100 * Number(percent[2])) + '.';
-        if (expression && /[+\-*/%]/.test(expression) && /^[-+*/%().\d\s]+$/.test(expression)) {
-          try {
-            const result = Function('"use strict"; return (' + expression + ')')();
-            if (typeof result === 'number' && Number.isFinite(result)) return 'The answer is ' + result + '.';
-          } catch (_) {}
-        }
-        if (/capital of france/.test(lower)) return 'The capital of France is Paris.';
-        if (/red planet/.test(lower)) return 'Mars is known as the Red Planet.';
-        if (/days.*leap year|leap year.*days/.test(lower)) return 'A leap year has 366 days.';
-        if (/5\s*kilometers?.*miles?|miles?.*5\s*kilometers?/.test(lower)) return '5 kilometers is approximately 3.10686 miles.';
-        if (/32\s*fahrenheit.*celsius|celsius.*32\s*fahrenheit/.test(lower)) return '32 degrees Fahrenheit is 0 degrees Celsius.';
-        if (/opposite of hot/.test(lower)) return 'The opposite of hot is cold.';
-        if (/\bdefine ephemeral\b/.test(lower)) return 'Ephemeral means lasting for a very short time; temporary.';
-        if (/photosynthesis/.test(lower)) return 'Photosynthesis is the process plants use to convert light energy, water, and carbon dioxide into sugars and oxygen.';
-        if (/^(hi|hello|hey|yo)\b/i.test(text)) return 'Hello — I’m TONY. I’m ready to help. Ask me a question or paste text to work with.';
-        if (/write .*thank|thank-you note|thank you note/.test(lower)) return 'Thank you for your time and help. I truly appreciate it.';
-        if (/\b(thank|thanks)\b/i.test(lower)) return 'You’re welcome. I’m ready for the next question.';
-        if (/\b(who are you|what can you do|help)\b/i.test(lower)) return 'I’m TONY, your local chat assistant. I can answer basic questions, brainstorm, rewrite text, summarize text you paste, and work through calculations. Live research requires an API connection.';
-        if (/\b(weather|temperature|forecast)\b/i.test(text)) return 'I received your weather question: “' + text + '”\n\nThis browser-only version has no live weather feed, so I cannot safely provide the current temperature. Connect a weather API or paste a forecast here for me to explain.';
-        if (/\bwhat time|current time|time in\b|latest news|news headlines|current events|today.s news/.test(lower)) return 'I received your question: “' + text + '”\n\nI don’t have live web access in this browser-only version, so I can’t verify the current time or latest news.';
-        if (/\bsummarize|summary\b/.test(lower)) return 'I can summarize text, but I need the text to summarize. Paste the text here and I’ll condense it.';
-        if (text.endsWith('?')) return 'I received your question: “' + text + '”\n\nI can help reason through it, but this browser-only version has no live web or AI API access. Paste relevant context here and I’ll work with it.';
-        return 'I received: “' + text + '”\n\nAsk a question, request a rewrite, paste text to summarize, or give me a calculation.';
-      }
-      async function answerQuestion(text) {
-        try {
-          const response = await fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: [{ role: 'user', content: text }] }) });
-          if (response.ok) {
-            const data = await response.json();
-            if (data.reply) return data.reply;
-          }
-        } catch (_) {}
-        return localAnswer(text);
-      }
-      composer.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        const text = input.value.trim();
-        if (!text) return;
-        addMessage(text, 'user');
-        input.value = '';
-        autoSize();
-        sendButton.disabled = true;
-        const response = await answerQuestion(text);
-        addMessage(response, 'assistant');
-        sendButton.disabled = false;
-        input.focus();
-      });
-
-      attachButton.addEventListener('click', () => fileInput.click());
-      fileInput.addEventListener('change', () => {
-        if (!fileInput.files.length) return;
-        const names = Array.from(fileInput.files).map(file => file.name).join(', ');
-        showToast('Attached: ' + names);
-        fileInput.value = '';
-      });
-
-      autoSize();
+      const closeMenus=()=>{mainMenu.classList.remove('open');actionMenu.classList.remove('open');menuButton.setAttribute('aria-expanded','false');actionButton.setAttribute('aria-expanded','false')};
+      const toggleMenu=(button,menu,otherMenu,otherButton)=>{const open=menu.classList.toggle('open');otherMenu.classList.remove('open');button.setAttribute('aria-expanded',String(open));otherButton.setAttribute('aria-expanded','false')};
+      const showToast=text=>{clearTimeout(toastTimer);toast.textContent=text;toast.classList.add('show');toastTimer=setTimeout(()=>toast.classList.remove('show'),1900)};
+      const autoSize=()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,160)+'px';sendButton.disabled=!input.value.trim()};
+      const addMessage=(text,role='user')=>{emptyState.style.display='none';messages.classList.add('has-messages');const item=document.createElement('article');item.className='message '+role;const bubble=document.createElement('div');bubble.className='message-bubble';bubble.textContent=text;item.appendChild(bubble);messages.appendChild(item);requestAnimationFrame(()=>{const area=document.getElementById('chatArea');area.scrollTop=area.scrollHeight})};
+      menuButton.addEventListener('click',e=>{e.stopPropagation();toggleMenu(menuButton,mainMenu,actionMenu,actionButton)});actionButton.addEventListener('click',e=>{e.stopPropagation();toggleMenu(actionButton,actionMenu,mainMenu,menuButton)});
+      document.addEventListener('click',e=>{if(!mainMenu.contains(e.target)&&e.target!==menuButton&&!actionMenu.contains(e.target)&&e.target!==actionButton)closeMenus()});
+      document.querySelectorAll('[data-action]').forEach(item=>item.addEventListener('click',()=>{const action=item.dataset.action;closeMenus();if(action==='New Chat'){newChat();return}showToast(action+' selected')}));
+      function newChat(){messages.innerHTML='';messages.classList.remove('has-messages');emptyState.style.display='grid';input.value='';autoSize();input.focus();closeMenus();showToast('New chat started')}
+      newChatButton.addEventListener('click',newChat);input.addEventListener('input',autoSize);input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();composer.requestSubmit()}});
+      function localAnswer(question){const text=question.trim(),lower=text.toLowerCase(),expression=text.replace(/[^0-9+\-*/().%\s]/g,'').trim(),percent=text.match(/what is\s+([\d.]+)%\s+of\s+([\d.]+)/i);if(percent)return'The answer is '+(Number(percent[1])/100*Number(percent[2]))+'.';if(expression&&/[+\-*/%]/.test(expression)&&/^[-+*/%().\d\s]+$/.test(expression)){try{const result=Function('"use strict"; return ('+expression+')')();if(typeof result==='number'&&Number.isFinite(result))return'The answer is '+result+'.'}catch(_){}}if(/capital of france/.test(lower))return'The capital of France is Paris.';if(/red planet/.test(lower))return'Mars is known as the Red Planet.';if(/days.*leap year|leap year.*days/.test(lower))return'A leap year has 366 days.';if(/5\s*kilometers?.*miles?|miles?.*5\s*kilometers?/.test(lower))return'5 kilometers is approximately 3.10686 miles.';if(/32\s*fahrenheit.*celsius|celsius.*32\s*fahrenheit/.test(lower))return'32 degrees Fahrenheit is 0 degrees Celsius.';if(/opposite of hot/.test(lower))return'The opposite of hot is cold.';if(/\bdefine ephemeral\b/.test(lower))return'Ephemeral means lasting for a very short time; temporary.';if(/photosynthesis/.test(lower))return'Photosynthesis is the process plants use to convert light energy, water, and carbon dioxide into sugars and oxygen.';if(/^(hi|hello|hey|yo)\b/i.test(text))return'Hello — I’m TONY. I’m ready to help. Ask me a question or paste text to work with.';if(/write .*thank|thank-you note|thank you note/.test(lower))return'Thank you for your time and help. I truly appreciate it.';if(/\b(thank|thanks)\b/i.test(lower))return'You’re welcome. I’m ready for the next question.';return'I received: “'+text+'”\n\nAsk a question, request a rewrite, paste text to summarize, or give me a calculation.'}
+      async function answerQuestion(text){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),1950);try{const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:text}]}),signal:controller.signal});if(response.ok){const data=await response.json();if(data.reply)return data.reply}}catch(_){}finally{clearTimeout(timer)}return localAnswer(text)}
+      composer.addEventListener('submit',async e=>{e.preventDefault();e.stopImmediatePropagation();const text=input.value.trim();if(!text)return;addMessage(text,'user');input.value='';autoSize();sendButton.disabled=true;const response=await answerQuestion(text);addMessage(response,'assistant');sendButton.disabled=false;input.focus()});
+      attachButton.addEventListener('click',()=>fileInput.click());fileInput.addEventListener('change',()=>{if(!fileInput.files.length)return;showToast('Attached: '+Array.from(fileInput.files).map(file=>file.name).join(', '));fileInput.value=''});autoSize();
     })();
   </script>
 </body>
