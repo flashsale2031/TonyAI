@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          node scripts/chatbox-100-ci-v15.mjs > duckai-test.log 2>&1
+          node scripts/chatbox-100-ci-v16.mjs > duckai-test.log 2>&1
           status=$?
           cat duckai-test.log
           printf '%s' "$status" > duckai-test.status
