@@ -4,6 +4,7 @@ const SEARCH_URL='https://html.duckduckgo.com/html/';
 const STOP_WORDS=new Set(['the','and','for','with','that','this','from','your','what','where','when','which','about','into','have','has','are','was','were','will','how','why','who','does','can','not','you','its','our','their','more','than','then','also','only','over','under','www','com']);
 const clean=value=>String(value??'').replace(/\s+/g,' ').trim();
 const tokens=text=>clean(text).toLowerCase().match(/[a-z0-9][a-z0-9._-]{2,}/g)?.filter(token=>!STOP_WORDS.has(token))||[];
+const browserPromise=chromium.launch({headless:true});
 
 function frequencyMap(values){
  const map=new Map();
@@ -19,10 +20,11 @@ function rankResult(result,commonText,commonClasses,queryTokens){
  return tokenHits*100+commonTextHits*10+classHits;
 }
 
-export async function chatresponse(query,{maxResults=8,timeoutMs=1800,headless=true}={}){
+export async function chatresponse(query,{maxResults=8,timeoutMs=1800}={}){
  const q=clean(query);if(!q)throw new Error('Search query is required');
- const browser=await chromium.launch({headless});
- const page=await browser.newPage({javaScriptEnabled:true});
+ const browser=await browserPromise;
+ const context=await browser.newContext();
+ const page=await context.newPage();
  try{
   await page.goto(SEARCH_URL,{waitUntil:'domcontentloaded',timeout:timeoutMs});
   const input=page.locator('input[name="q"]').first();
@@ -47,7 +49,7 @@ export async function chatresponse(query,{maxResults=8,timeoutMs=1800,headless=t
   const ranked=snapshot.results.map(result=>({...result,score:rankResult(result,commonText,commonClasses,queryTokens)})).sort((a,b)=>b.score-a.score||a.title.localeCompare(b.title));
   const winner=ranked[0]||null;
   return{query:q,provider:'DuckDuckGo DOM',result:winner,results:ranked,frequency:{commonText,commonClasses},dom:{nodeListCount:snapshot.nodeCount,inspectedSelectors:['a','button','span','p','div','h1','h2','h3']},method:'JavaScript browser search -> injected query -> DOM NodeList inspection -> frequency map -> most common ranked result'};
- }finally{await browser.close();}
+ }finally{await context.close();}
 }
 
 export default chatresponse;
