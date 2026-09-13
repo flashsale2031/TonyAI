@@ -1,7 +1,15 @@
-/* TonyAI ChatResponse browser bridge. It runs the live search path in parallel with
- * the normal local chat path and renders verified web evidence as soon as it arrives.
+/* TonyAI ChatResponse browser bridge.
+ *
+ * Every chatbox request now has two browser-visible paths:
+ *   1. open Duck.ai directly with the exact user text in its prompt URL;
+ *   2. run TonyAI ChatResponse in parallel against DuckDuckGo web results.
+ *
+ * Duck.ai is a separate origin, so the browser cannot safely inject into its
+ * DOM after navigation. Its supported prompt/query URL is used instead; this
+ * preserves the exact request without requiring cross-origin DOM access.
  */
 (() => {
+  const DUCK_AI_URL = 'https://duck.ai/chat';
   const state = { request: 0, controller: null, cache: new Map() };
   const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim();
   const escapeHtml = value => clean(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -9,7 +17,23 @@
   const getMessages = () => document.getElementById('messages');
   const getArea = () => document.getElementById('chatArea');
   const scroll = () => requestAnimationFrame(() => { const area = getArea(); if (area) area.scrollTop = area.scrollHeight; });
-  const statusHtml = (text,detail='') => `<div data-chatresponse-status style="color:#6b6b6b;font-size:.86rem;padding:4px 0 10px">${escapeHtml(text)}${detail ? ` <span style="opacity:.7">${escapeHtml(detail)}</span>` : ''}</div>`;
+  const statusHtml = (text, detail='') => `<div data-chatresponse-status style="color:#6b6b6b;font-size:.86rem;padding:4px 0 10px">${escapeHtml(text)}${detail ? ` <span style="opacity:.7">${escapeHtml(detail)}</span>` : ''}</div>`;
+
+  function duckAiUrl(query) {
+    const url = new URL(DUCK_AI_URL);
+    url.searchParams.set('prompt', '1');
+    url.searchParams.set('q', query);
+    return url.toString();
+  }
+
+  function openDuckAi(query) {
+    const url = duckAiUrl(query);
+    // Prefer a new tab so ChatResponse can finish in TonyAI. If the browser
+    // blocks scripted tabs, fall back to direct navigation in the current tab.
+    const tab = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!tab) window.location.assign(url);
+    return url;
+  }
 
   function appendRow(role, html, marker='') {
     const messages = getMessages();
@@ -52,7 +76,7 @@
     const confidenceText = Number.isFinite(confidence) ? `${Math.round(confidence * 100)}% evidence confidence` : 'Evidence search completed';
     const definite = result?.definite ? ' · cross-source agreement' : '';
     const answer = clean(result?.answer || result?.result?.snippet || 'No supported result was returned.');
-    return `<div><div style="font-size:.82rem;color:#666;margin-bottom:6px">Live ChatResponse search · ${escapeHtml(confidenceText + definite)} · ${Math.max(0, Math.round(elapsed))} ms</div><div>${escapeHtml(answer)}</div>${evidenceHtml(result)}${sourceCards(result)}</div>`;
+    return `<div><div style="font-size:.82rem;color:#666;margin-bottom:6px">ChatResponse live web search · ${escapeHtml(confidenceText + definite)} · ${Math.max(0, Math.round(elapsed))} ms</div><div>${escapeHtml(answer)}</div>${evidenceHtml(result)}${sourceCards(result)}</div>`;
   }
 
   async function runSearch(query, row, requestId) {
@@ -66,7 +90,7 @@
     state.controller = new AbortController();
     const started = performance.now();
     const bubble = row.querySelector('.message-bubble');
-    bubble.innerHTML = statusHtml('Searching live sources…','planning query variants');
+    bubble.innerHTML = statusHtml('Searching live sources…','ChatResponse + DuckDuckGo query expansion');
     try {
       const response = await fetch('/api/chatresponse', {
         method:'POST', headers:{'content-type':'application/json'},
@@ -113,13 +137,18 @@
     const messages = getMessages();
     if (!messages) return;
     appendRow('user', escapeHtml(query));
-    const searchRow = appendRow('assistant', statusHtml('Working…','ChatResponse + TonyAI running in parallel'), String(requestId));
+    const searchRow = appendRow('assistant', statusHtml('Working…','Opening Duck.ai + searching with ChatResponse'), String(requestId));
+
+    // Start both paths from the same exact chatbox text. Duck.ai receives it
+    // through its prompt URL while ChatResponse searches for supporting answers.
+    openDuckAi(query);
     runSearch(query, searchRow, requestId);
     runParallelLocalChat(query, requestId, searchRow);
+
     input.value = '';
     input.style.height = 'auto';
     const send = document.getElementById('sendButton');
-    if (send) send.disabled = true;
+    if (send) send.disabled = false;
     scroll();
   }
 
@@ -129,6 +158,8 @@
     composer.addEventListener('submit', handleSubmit, true);
     window.TonyAIChatResponse = {
       search: query => { state.request += 1; const row = appendRow('assistant', statusHtml('Searching live sources…'), String(state.request)); return runSearch(clean(query), row, state.request); },
+      openDuckAi,
+      duckAiUrl,
       clearCache: () => state.cache.clear()
     };
   }
