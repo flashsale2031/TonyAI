@@ -20,8 +20,6 @@ jobs:
       - name: Install Chromium for Playwright
         run: npx playwright install chromium
       - name: Run npm test with diagnostics
-        id: npm_test
-        continue-on-error: true
         shell: bash
         run: |
           set +e
@@ -29,9 +27,9 @@ jobs:
           status=$?
           cat npm-test.log
           printf '%s' "$status" > npm-test.status
-          exit 0
+          exit "$status"
       - name: Upload npm test diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: npm-test-diagnostics
@@ -40,19 +38,19 @@ jobs:
             npm-test.status
           if-no-files-found: warn
       - run: npm run lint
-      - name: Run 100-question Duck.ai + TonyAI chatbox test
-        id: duckai_test
-        continue-on-error: true
+      - name: Run exactly 100 Duck.ai + TonyAI chatbox tests
         shell: bash
         run: |
           set +e
-          node scripts/chatbox-100-ci-v4.mjs > duckai-test.log 2>&1
+          node scripts/chatbox-100-ci-v5.mjs > duckai-test.log 2>&1
           status=$?
           cat duckai-test.log
           printf '%s' "$status" > duckai-test.status
-          exit 0
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
       - name: Upload Duck.ai test diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: duckai-test-diagnostics
@@ -60,9 +58,3 @@ jobs:
             duckai-test.log
             duckai-test.status
           if-no-files-found: warn
-      - name: Fail CI if tests failed
-        if: always()
-        shell: bash
-        run: |
-          test "$(cat npm-test.status)" = "0"
-          test "$(cat duckai-test.status)" = "0"
