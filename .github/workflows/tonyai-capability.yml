@@ -19,42 +19,8 @@ jobs:
       - run: npm ci
       - name: Install Chromium for Playwright
         run: npx playwright install chromium
-      - name: Run npm test with diagnostics
-        shell: bash
-        run: |
-          set +e
-          npm test > npm-test.log 2>&1
-          status=$?
-          cat npm-test.log
-          printf '%s' "$status" > npm-test.status
-          exit "$status"
-      - name: Upload npm test diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: npm-test-diagnostics
-          path: |
-            npm-test.log
-            npm-test.status
-          if-no-files-found: warn
+      - name: Run npm test
+        run: npm test
       - run: npm run lint
       - name: Run exactly 100 Duck.ai + TonyAI chatbox tests
-        shell: bash
-        run: |
-          set +e
-          node scripts/chatbox-100-ci-v5.mjs > duckai-test.log 2>&1
-          status=$?
-          cat duckai-test.log
-          printf '%s' "$status" > duckai-test.status
-          if [ "$status" -ne 0 ]; then
-            exit "$status"
-          fi
-      - name: Upload Duck.ai test diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: duckai-test-diagnostics
-          path: |
-            duckai-test.log
-            duckai-test.status
-          if-no-files-found: warn
+        run: node scripts/chatbox-100-ci-v6.mjs
