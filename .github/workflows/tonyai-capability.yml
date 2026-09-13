@@ -25,16 +25,19 @@ jobs:
         shell: bash
         run: |
           set +e
-          npm test 2>&1 | tee npm-test.log
-          status=${PIPESTATUS[0]}
-          echo "status=$status" >> "$GITHUB_OUTPUT"
+          npm test > npm-test.log 2>&1
+          status=$?
+          cat npm-test.log
+          printf '%s' "$status" > npm-test.status
           exit 0
       - name: Upload npm test diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: npm-test-diagnostics
-          path: npm-test.log
+          path: |
+            npm-test.log
+            npm-test.status
           if-no-files-found: warn
       - run: npm run lint
       - name: Run 100-question Duck.ai + TonyAI chatbox test
@@ -43,20 +46,23 @@ jobs:
         shell: bash
         run: |
           set +e
-          node scripts/chatbox-100-ci-v3.mjs 2>&1 | tee duckai-test.log
-          status=${PIPESTATUS[0]}
-          echo "status=$status" >> "$GITHUB_OUTPUT"
+          node scripts/chatbox-100-ci-v3.mjs > duckai-test.log 2>&1
+          status=$?
+          cat duckai-test.log
+          printf '%s' "$status" > duckai-test.status
           exit 0
       - name: Upload Duck.ai test diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: duckai-test-diagnostics
-          path: duckai-test.log
+          path: |
+            duckai-test.log
+            duckai-test.status
           if-no-files-found: warn
       - name: Fail CI if tests failed
         if: always()
         shell: bash
         run: |
-          test "${{ steps.npm_test.outputs.status }}" = "0"
-          test "${{ steps.duckai_test.outputs.status }}" = "0"
+          test "$(cat npm-test.status)" = "0"
+          test "$(cat duckai-test.status)" = "0"
