@@ -1,38 +1,44 @@
 # TONY AI
 
-TONY is a browser-first AI workspace with a server runtime for chat, research, browser inspection/action planning, validation, queues, audit logging, recovery, image generation, and downloadable artifacts.
+TONY is a browser-first AI workspace with a pure-JavaScript primary generation backbone plus optional external retrieval/image tools.
 
-## Functional replication layer
+## Large JavaScript LM
 
-The supplied `next-level-data-entry-ai-assistant` archive was assessed as a collection of functional components rather than treated as a black-box binary. Its observable roles map into TONY as follows:
+`engine/large-js-lm.js` implements a sparse, deterministic, runtime-trainable language engine with a declared **450,000,000,000 virtual parameter capacity**. It uses hashed parameter addressing, lazy materialization, runtime corpus learning, retrieval, token scoring, sampling, safety/tool-routing families, and a built-in JavaScript capability corpus.
 
-- survey/question classification -> `engine/survey/question-classifier.js`
-- sensitive-data boundary -> `engine/safetyboundaries.js` plus existing policy adapters
-- LLM planning -> `engine/ai/llm.js`, `engine/planner.js`, `engine/verifier.js`
-- browser inspection/actions/visual fallback -> `engine/browser/*`
-- research -> `engine/research/researcher.js` and DuckDuckGo retrieval
-- persistent outcome memory -> `engine/learning/outcome-memory.js`
-- queue/worker/recovery/audit -> `engine/queue/*`, `engine/worker.js`, `engine/recovery/*`, `engine/storage/*`
-- deterministic validation/consensus -> `engine/validation/*`
-- offline language/data/code utilities -> `engine/local-language.js`, `engine/local-data.js`, `engine/local-code.js`, `engine/local-tools.js`
+The 450B figure is a virtual parameter address space, not 450 billion physically stored learned weights. Adding JavaScript source cannot manufacture trained neural knowledge, so TONY does not falsely claim that this is equivalent to an 8B trained neural model. The design instead maximizes useful local deterministic computation while keeping the primary generation path independent of pretrained language-model weights.
 
-`engine/replicated-engine.js` provides a deterministic functional replica for common calculator, summarization, text utility, code-analysis, and statistics operations. `engine/replica-manifest.js` records the capability chunks and their source modules. The browser bridge routes supported deterministic operations locally, then tries the local WebGPU/WASM model, and finally falls back to `/api/chat`.
+## Chat orchestration
 
-This is functional replication, not binary/weight reconstruction. The supplied archive does not contain a pretrained model-weight binary; therefore no fabricated binary is committed. Real model weights can be supplied through `engine/model-shards.js`, which downloads, verifies, caches, and reassembles independently hosted shards.
+`engine/large-js-chat.js` makes the large JavaScript engine the primary chat generator and connects the chat to deterministic local capabilities plus optional tools:
 
-## Local model
+- local intent routing, language utilities, calculations, data analysis, code analysis and artifact generation
+- browser inspection, queueing, recovery, validation and consensus through the existing TONY runtime
+- DuckDuckGo web retrieval for current information
+- optional external image generation when `OPENAI_API_KEY` is configured
+- safety boundaries for credentials, authentication factors, payment/banking data and private secrets
 
-TONY can use WebLLM/WebGPU first and Transformers.js/WASM as fallback with SmolLM2-360M-Instruct. Model weights are obtained by the browser runtime and cached locally; they are not embedded in Git as source code.
+External search and image generation are tools only; they are not used as the primary text-generation backbone.
 
-## Server
+## API
 
 ```bash
 npm install
 npm start
 ```
 
-Useful endpoints include `/api/chat`, `/api/replica`, `/api/search`, `/api/image`, `/api/files`, `/api/capabilities`, `/api/inspect`, `/api/queue`, `/api/validate`, `/api/consensus`, and `/api/recover`.
+Large-JS endpoints:
+
+- `POST /api/chat` — primary TONY chat using the pure-JavaScript LM and tool orchestration
+- `POST /api/large-js-chat` — direct large-JS chat
+- `POST /api/large-js-learn` — runtime learning from supplied local text
+- `POST /api/large-js-knowledge` — add local knowledge entries
+- `GET /api/large-js-stats` — parameter capacity, materialized parameters, learning updates and configured families
+- `POST /api/search` — optional external web retrieval
+- `POST /api/image` — optional external image generation
+
+Existing TONY endpoints for validation, consensus, browser inspection, queues, recovery, files and capabilities remain available.
 
 ## Safety
 
-Essential safeguards remain in place for credentials, authentication factors, payment/banking data, private secrets, and other protected operations. Browser navigation and external actions are controlled by server configuration.
+Protected operations continue to require human handling. Browser navigation and external actions remain subject to TONY's existing policy and configuration gates.
