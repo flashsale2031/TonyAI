@@ -1,98 +1,114 @@
 import { chromium } from 'playwright';
 
 /*
- * TonyAI ChatResponse: single-file, browser-native web retrieval.
+ * TonyAI ChatResponse v2: single-file evidence search and verification engine.
  *
- * The pipeline intentionally stays inside this file: search-engine query
- * injection, live DOM NodeList inspection, frequency maps, query expansion,
- * duplicate clustering, source-quality scoring, corroboration and ranking.
- * Search evidence can be strong but no search engine can guarantee universal
- * certainty, so confidence is explicitly evidence-based rather than absolute.
+ * Uses only Playwright (already present in TonyAI). The pipeline is deliberately
+ * self-contained: query planning -> multi-query discovery -> DOM extraction ->
+ * canonicalization -> source-page verification -> structured-data extraction ->
+ * evidence sentence extraction -> independent-source consensus -> contradiction
+ * detection -> authority/relevance/freshness scoring -> calibrated confidence.
+ *
+ * "Definite" is never treated as magical certainty. It means the available live
+ * evidence crosses a strict agreement threshold. Search engines and websites
+ * can be incomplete, stale, wrong, or unavailable.
  */
 const SEARCH_URL='https://html.duckduckgo.com/html/';
 const DEFAULT_RESULTS=10,MAX_RESULTS=12,MAX_VARIANTS=4,DEFAULT_TIMEOUT=1800;
+const VERIFY_LIMIT=5,MAX_SOURCE_TEXT=24000,MAX_SENTENCES=160;
 const STOP_WORDS=new Set('a an the and or but if then else for to of in on at by with from into over under about as is are was were be been being this that these those it its they them their your you we our what which who whom where when why how can could should would may might must do does did have has had not no nor than too very more most some any all each every both either neither other another such only own same so just now today current latest new get give find search information answer facts sources official documentation'.split(/\s+/));
-const TRUSTED_SUFFIXES=new Map([['.gov',1],['.edu',.96],['.ac.uk',.96],['.org',.82],['.int',.98]]);
-const TRUSTED_DOMAINS=new Set(['wikipedia.org','developer.mozilla.org','docs.python.org','nodejs.org','developer.chrome.com','web.dev','ietf.org','w3.org','nasa.gov','nih.gov','who.int','un.org']);
+const TRUSTED_DOMAINS=new Set(['wikipedia.org','developer.mozilla.org','docs.python.org','nodejs.org','developer.chrome.com','web.dev','ietf.org','w3.org','nasa.gov','nih.gov','who.int','un.org','github.com','developer.apple.com','learn.microsoft.com','support.google.com']);
+const TRUSTED_SUFFIXES=new Map([['.gov',1],['.edu',.96],['.ac.uk',.96],['.int',.98],['.gov.uk',.99],['.gc.ca',.99]]);
 const browserPromise=chromium.launch({headless:true});
-const clean=value=>String(value??'').replace(/\s+/g,' ').trim();
-const lower=value=>clean(value).toLowerCase();
+const clean=v=>String(v??'').replace(/\s+/g,' ').trim();
+const lower=v=>clean(v).toLowerCase();
+const clamp=(n,min=0,max=1)=>Math.max(min,Math.min(max,n));
 const tokens=text=>[...new Set((lower(text).match(/[a-z0-9][a-z0-9._:/-]{1,}/g)||[]).filter(x=>x.length>1&&!STOP_WORDS.has(x)))];
 const wordSet=text=>new Set(tokens(text));
-const clamp=(n,min=0,max=1)=>Math.max(min,Math.min(max,n));
-
-function frequencyMap(values,limit=40){
- const map=new Map();for(const value of values){const key=clean(value);if(!key||key.length>300)continue;map.set(key,(map.get(key)||0)+1)}
- return [...map.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,limit).map(([value,count])=>({value,count}));
-}
-function canonicalUrl(raw){
- try{const u=new URL(raw);u.hash='';u.hostname=u.hostname.toLowerCase();u.protocol='https:';for(const key of ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','fbclid','gclid'])u.searchParams.delete(key);if(u.pathname.length>1)u.pathname=u.pathname.replace(/\/+$/,'');return u.toString()}catch{return clean(raw)}
-}
+function canonicalUrl(raw){try{const u=new URL(raw);u.hash='';u.protocol='https:';u.hostname=u.hostname.toLowerCase();for(const k of ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','fbclid','gclid','msclkid'])u.searchParams.delete(k);if(u.pathname.length>1)u.pathname=u.pathname.replace(/\/+$/,'');return u.toString()}catch{return clean(raw)}}
 function domainOf(url){try{return new URL(url).hostname.replace(/^www\./,'').toLowerCase()}catch{return ''}}
-function sourceQuality(url){
- const domain=domainOf(url);if(!domain)return .15;if(TRUSTED_DOMAINS.has(domain))return 1;for(const [suffix,score] of TRUSTED_SUFFIXES)if(domain.endsWith(suffix))return score;
- if(/(^|\.)(docs?|developer|developers|support|help|reference|spec|standards)\./i.test(domain))return .86;
- if(/(^|\.)(news|reuters|apnews|bbc|nytimes|nature|science|arxiv)\./i.test(domain))return .84;
- if(/(^|\.)(reddit|quora|medium|substack)\./i.test(domain))return .58;return .65;
-}
-function queryVariants(query){
- const q=clean(query),quoted=q.match(/"[^"]+"/g)?.join(' ')||'';
- return [...new Set([q,quoted||q,`${q} facts sources`,`${q} official documentation`].map(clean).filter(Boolean))].slice(0,MAX_VARIANTS);
-}
-function overlap(a,b){const aa=wordSet(a),bb=wordSet(b);if(!aa.size||!bb.size)return 0;let hits=0;for(const x of aa)if(bb.has(x))hits++;return hits/Math.max(1,Math.min(aa.size,bb.size))}
-function dateScore(text){const match=lower(text).match(/\b(20\d{2})\b/);if(!match)return .5;const age=new Date().getUTCFullYear()-Number(match[1]);return age<=0?1:age===1?.9:age===2?.78:age<=5?.6:.35}
-function rankResult(result,{queryTokens,commonText,commonClasses,domainCounts}){
- const text=lower(`${result.title} ${result.snippet}`),rt=wordSet(text);let hits=0;for(const token of queryTokens)if(rt.has(token))hits++;
- const lexical=clamp(hits/Math.max(1,queryTokens.size)),phrase=overlap(result.title,result.query||''),domain=domainOf(result.url);
- const commonTextHits=commonText.reduce((n,x)=>n+(x.value.length>5&&text.includes(lower(x.value))?x.count:0),0);
- const classHits=result.classes.reduce((n,c)=>n+(commonClasses.get(c)||0),0);
- const corroboration=clamp(Math.log1p(domainCounts.get(domain)||1)/Math.log(8));
- return lexical*38+phrase*14+corroboration*15+sourceQuality(result.url)*14+dateScore(`${result.title} ${result.snippet}`)*6+clamp(result.snippet.length/180)*5+clamp(result.title.length/90)*3+Math.min(5,commonTextHits/4)+Math.min(3,classHits/20);
-}
+function sourceQuality(url){const d=domainOf(url);if(!d)return .1;if(TRUSTED_DOMAINS.has(d))return 1;for(const [s,v] of TRUSTED_SUFFIXES)if(d.endsWith(s))return v;if(/(^|\.)(docs?|developer|developers|support|help|reference|spec|standards|manual)\./i.test(d))return .9;if(/(^|\.)(reuters|apnews|bbc|nytimes|nature|science|arxiv|npr)\./i.test(d))return .86;if(/(^|\.)(reddit|quora|medium|substack)\./i.test(d))return .5;return .66}
+function frequency(values,limit=40){const m=new Map();for(const v of values){const k=clean(v);if(k&&k.length<=320)m.set(k,(m.get(k)||0)+1)}return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,limit).map(([value,count])=>({value,count}))}
+function overlap(a,b){const A=wordSet(a),B=wordSet(b);if(!A.size||!B.size)return 0;let n=0;for(const x of A)if(B.has(x))n++;return n/Math.max(1,Math.min(A.size,B.size))}
+function queryVariants(query){const q=clean(query);const quoted=(q.match(/"[^"]+"/g)||[]).join(' ');const words=tokens(q);const variants=[q,quoted||q,`${q} official source`,`${q} facts evidence`];if(words.length>=2){variants.push(`${words.slice(0,8).join(' ')} official`,`${words.slice(0,8).join(' ')} documentation`)}return [...new Set(variants.map(clean).filter(Boolean))].slice(0,MAX_VARIANTS)}
+function dateScore(text){const years=[...(lower(text).matchAll(/\b(19\d{2}|20\d{2})\b/g))].map(x=>Number(x[1])).filter(y=>y>=1900&&y<=new Date().getUTCFullYear()+1);if(!years.length)return .5;const age=Math.max(0,new Date().getUTCFullYear()-Math.max(...years));return age===0?1:age===1?.93:age===2?.86:age<=5?.7:age<=10?.5:.3}
+function sentenceSplit(text){return clean(text).split(/(?<=[.!?])\s+(?=[A-Z0-9])/).map(clean).filter(s=>s.length>=35&&s.length<=700).slice(0,MAX_SENTENCES)}
+function evidenceSentences(text,query){const qt=new Set(tokens(query));return sentenceSplit(text).map(sentence=>{const st=wordSet(sentence);let hit=0;for(const t of qt)if(st.has(t))hit++;return{sentence,coverage:qt.size?hit/qt.size:0,quality:clamp(sentence.length/260)}}).filter(x=>x.coverage>0).sort((a,b)=>b.coverage*2+b.quality-a.coverage*2-a.quality).slice(0,20)}
+function normalizeFact(s){return lower(s).replace(/https?:\/\/\S+/g,'').replace(/\b\d[\d,.%+-]*\b/g,'#').replace(/[^a-z0-9# ]/g,' ').replace(/\s+/g,' ').trim()}
+function numericSignature(s){return [...lower(s).matchAll(/\b\d[\d,.]*(?:%|[a-z]+)?\b/g)].map(x=>x[0]).join('|')}
+function extractDate(meta){for(const x of meta){if(/date(published|modified)|article:published_time|pubdate/i.test(x.key)&&x.value)return x.value}return ''}
+function rankDiscovery(r,query){const qt=new Set(tokens(query)),rt=wordSet(`${r.title} ${r.snippet}`);let hit=0;for(const t of qt)if(rt.has(t))hit++;const lexical=qt.size?hit/qt.size:0;return lexical*48+sourceQuality(r.url)*22+dateScore(`${r.title} ${r.snippet}`)*8+clamp(r.snippet.length/220)*8+clamp(r.title.length/100)*4+r.queries.length*3}
 
 async function searchOne(page,query,limit,timeoutMs){
- // The request is deliberately injected through the search page rather than
- // only encoded into a URL, preserving the requested browser/DOM workflow.
  await page.goto(SEARCH_URL,{waitUntil:'domcontentloaded',timeout:timeoutMs});
- const input=page.locator('input[name="q"]').first();
- await input.fill(query);await input.press('Enter');
- await page.waitForLoadState('domcontentloaded',{timeout:Math.max(200,timeoutMs-200)}).catch(()=>{});
+ const input=page.locator('input[name="q"]').first();await input.fill(query);await input.press('Enter');
+ await page.waitForLoadState('domcontentloaded',{timeout:Math.max(200,timeoutMs-150)}).catch(()=>{});
  return page.evaluate(({limit,query})=>{
-  const clean=x=>String(x??'').replace(/\s+/g,' ').trim();const nodes=Array.from(document.querySelectorAll('*'));
-  const selectors=['.result','.results_links','article','main a[href]','a.result__a'];const containers=[];
-  for(const selector of selectors)for(const node of document.querySelectorAll(selector))if(!containers.includes(node))containers.push(node);
+  const clean=x=>String(x??'').replace(/\s+/g,' ').trim(), containers=[];
+  for(const selector of ['.result','.results_links','article','main a[href]','a.result__a'])for(const node of document.querySelectorAll(selector))if(!containers.includes(node))containers.push(node);
   const results=[];
   for(const node of containers.slice(0,limit*3)){
-   const link=node.matches('a[href]')?node:node.querySelector('a.result__a[href],a[href]');if(!link)continue;const url=link.href||'';if(!/^https?:/i.test(url))continue;
-   const title=clean(link.textContent||node.querySelector('h1,h2,h3')?.textContent);const snippet=clean(node.querySelector('.result__snippet,.result__body,p')?.textContent||node.textContent).slice(0,800);
-   if(!title||results.some(x=>x.url===url))continue;results.push({title,url,snippet,classes:Array.from(node.classList||[]),query});
+   const link=node.matches('a[href]')?node:node.querySelector('a.result__a[href],a[href]');if(!link||!/^https?:/i.test(link.href||''))continue;
+   const title=clean(link.textContent||node.querySelector('h1,h2,h3')?.textContent),snippet=clean(node.querySelector('.result__snippet,.result__body,p')?.textContent||node.textContent).slice(0,900);if(!title)continue;
+   if(results.some(x=>x.url===link.href))continue;results.push({title,url:link.href,snippet,classes:[...(node.classList||[])],query});
   }
-  const texts=[],classes=[],attributes=[];for(const node of nodes.slice(0,8000)){
-   const text=clean(node.textContent);if(text.length>=3&&text.length<=300)texts.push(text);for(const c of node.classList||[])if(c)classes.push(c);for(const attr of node.attributes||[])if(attr.name&&attr.value)attributes.push(`${attr.name}=${clean(attr.value).slice(0,160)}`);
-  }
-  return{results,texts,classes,attributes,nodeCount:nodes.length,url:location.href};
+  return{results,nodeCount:document.querySelectorAll('*').length,url:location.href};
  },{limit,query});
 }
-function mergeResults(snapshots){
- const map=new Map(),text=[],classes=[],attributes=[];
- for(const snapshot of snapshots){text.push(...snapshot.texts);classes.push(...snapshot.classes);attributes.push(...snapshot.attributes);for(const result of snapshot.results){const key=canonicalUrl(result.url),prior=map.get(key);if(prior){prior.queries.add(result.query);if(result.snippet.length>prior.snippet.length)prior.snippet=result.snippet;if(result.title.length>prior.title.length)prior.title=result.title;prior.classes=[...new Set([...prior.classes,...result.classes])]}else map.set(key,{...result,url:key,queries:new Set([result.query])})}}
- return{results:[...map.values()],commonText:frequencyMap(text,40),commonClasses:frequencyMap(classes,40),commonAttributes:frequencyMap(attributes,40)};
-}
-function chooseWinner(results,query){
- const queryTokens=new Set(tokens(query)),domainCounts=new Map();for(const r of results)domainCounts.set(domainOf(r.url),(domainCounts.get(domainOf(r.url))||0)+1);
- const commonText=results.flatMap(r=>tokens(`${r.title} ${r.snippet}`)).reduce((m,x)=>(m.set(x,(m.get(x)||0)+1),m),new Map()),classCounts=new Map();for(const r of results)for(const c of r.classes)classCounts.set(c,(classCounts.get(c)||0)+1);
- const ranked=results.map(r=>({...r,queries:[...r.queries],score:Number(rankResult(r,{queryTokens,commonText:[...commonText.entries()].map(([value,count])=>({value,count})),commonClasses:classCounts,domainCounts}).toFixed(4))})).sort((a,b)=>b.score-a.score||sourceQuality(b.url)-sourceQuality(a.url)||a.title.localeCompare(b.title));
- const top=ranked.slice(0,Math.min(5,ranked.length));const corroboration=top.length?top.filter((x,i)=>top.some((y,j)=>j!==i&&overlap(x.title+' '+x.snippet,y.title+' '+y.snippet)>=.45)).length/top.length:0;
- return{winner:ranked[0]||null,ranked,corroboration,domainAgreement:top.length?new Set(top.map(x=>domainOf(x.url))).size/top.length:0};
-}
-export async function chatresponse(query,{maxResults=DEFAULT_RESULTS,timeoutMs=DEFAULT_TIMEOUT}={}){
- const q=clean(query);if(!q)throw new Error('Search query is required');const browser=await browserPromise,context=await browser.newContext({locale:'en-US'}),variants=queryVariants(q),pages=await Promise.all(variants.map(()=>context.newPage()));
+function mergeDiscovery(snaps){const map=new Map();for(const s of snaps)for(const r of s.results){const key=canonicalUrl(r.url),old=map.get(key);if(!old)map.set(key,{...r,url:key,queries:new Set([r.query])});else{old.queries.add(r.query);if(r.title.length>old.title.length)old.title=r.title;if(r.snippet.length>old.snippet.length)old.snippet=r.snippet;old.classes=[...new Set([...old.classes,...r.classes])]}}return[...map.values()].map(r=>({...r,queries:[...r.queries]}))}
+
+async function inspectSource(page,result,query,timeoutMs){
  try{
-  const settled=await Promise.allSettled(variants.map((variant,i)=>searchOne(pages[i],variant,Math.min(Math.max(Number(maxResults)||DEFAULT_RESULTS,4),MAX_RESULTS),timeoutMs)));
-  const snapshots=settled.filter(x=>x.status==='fulfilled').map(x=>x.value);if(!snapshots.length)throw new Error('Search engine returned no inspectable DOM results');
-  const merged=mergeResults(snapshots),decision=chooseWinner(merged.results,q),winner=decision.winner,queryCoverage=snapshots.length/variants.length,corroborated=clamp(decision.corroboration*.65+decision.domainAgreement*.35);
-  const confidence=Number(clamp((winner?sourceQuality(winner.url):0)*.25+(winner?clamp(winner.score/100):0)*.45+queryCoverage*.1+corroborated*.2).toFixed(4));
-  return{query:q,answer:winner?.title||'No sufficiently supported result found.',result:winner,results:decision.ranked.slice(0,Math.min(12,merged.results.length)),confidence,definite:confidence>=.9&&corroborated>=.55,evidence:{queryVariants:variants,successfulVariants:snapshots.length,corroboration:corroborated,domainAgreement:decision.domainAgreement,sourceQuality:winner?sourceQuality(winner.url):0},frequency:{commonText:merged.commonText,commonClasses:merged.commonClasses,commonAttributes:merged.commonAttributes},dom:{nodeListCount:snapshots.reduce((n,s)=>n+s.nodeCount,0),inspectedSelectors:['*','.result','.results_links','article','main a[href]','a.result__a'],pagesInspected:snapshots.length},method:'JavaScript search-engine query injection -> multi-query DOM inspection -> NodeList extraction -> frequency maps -> canonicalization -> corroboration -> authority/relevance/freshness ranking -> strongest supported result'};
+  await page.goto(result.url,{waitUntil:'domcontentloaded',timeout:Math.max(700,timeoutMs)});
+  const data=await page.evaluate(({maxText})=>{
+   const clean=x=>String(x??'').replace(/\s+/g,' ').trim(),text=node=>clean(node?.innerText||node?.textContent||'');
+   const meta=[];for(const n of document.querySelectorAll('meta[name],meta[property],link[rel="canonical"]')){const key=n.getAttribute('name')||n.getAttribute('property')||n.getAttribute('rel')||'';const value=n.getAttribute('content')||n.getAttribute('href')||'';if(key&&value)meta.push({key,value:clean(value).slice(0,500)})}
+   const jsonld=[];for(const n of document.querySelectorAll('script[type="application/ld+json"]')){try{jsonld.push(JSON.parse(n.textContent))}catch{}}
+   const roots=[...document.querySelectorAll('article,main,[role="main"],[itemprop="articleBody"]')];const root=roots.sort((a,b)=>text(b).length-text(a).length)[0]||document.body;let body=text(root).slice(0,maxText);
+   if(body.length<800)body=text(document.body).slice(0,maxText);
+   const headings=[...document.querySelectorAll('h1,h2,h3')].map(text).filter(Boolean).slice(0,40);
+   const canonical=document.querySelector('link[rel="canonical"]')?.href||location.href;
+   return{title:clean(document.title),description:meta.find(x=>/description/i.test(x.key))?.value||'',meta,jsonld,body,headings,canonical,url:location.href};
+  },{maxText:MAX_SOURCE_TEXT});
+  const structured=JSON.stringify(data.jsonld||[]).slice(0,12000);const metadata=[...data.meta,{key:'jsonld',value:structured}];
+  const facts=evidenceSentences(`${data.title} ${data.description} ${data.headings.join('. ')} ${data.body}`,query);
+  const published=extractDate(metadata);
+  return{...result,source:{title:data.title,description:data.description,canonical:canonicalUrl(data.canonical||result.url),finalUrl:canonicalUrl(data.url||result.url),headings:data.headings,meta:metadata.slice(0,80),published,bodyLength:data.body.length},facts,verified:true};
+ }catch(error){return{...result,verified:false,source:{error:clean(error?.message||error)},facts:[]}}
+}
+function independentDomainCount(items){return new Set(items.map(x=>domainOf(x.url)).filter(Boolean)).size}
+function consensus(items,query){const groups=new Map();for(const item of items)for(const fact of item.facts){const key=normalizeFact(fact.sentence);if(key.length<30)continue;const g=groups.get(key)||{sentence:fact.sentence,domains:new Set(),sources:[],coverage:0,numbers:new Set()};g.domains.add(domainOf(item.url));g.sources.push(item.url);g.coverage=Math.max(g.coverage,fact.coverage);const sig=numericSignature(fact.sentence);if(sig)g.numbers.add(sig);groups.set(key,g)}return[...groups.values()].map(g=>({...g,domainCount:g.domains.size,sourceCount:g.sources.length,agreement:clamp(g.domainCount/3)*.7+clamp(g.sourceCount/4)*.3})).sort((a,b)=>b.agreement*2+b.coverage-a.agreement*2-a.coverage).slice(0,12)}
+function contradictions(items,query){const facts=items.flatMap(i=>i.facts.map(f=>({...f,url:i.url,domain:domainOf(i.url),numbers:numericSignature(f.sentence)}))).filter(f=>f.numbers);const out=[];for(let i=0;i<facts.length;i++)for(let j=i+1;j<facts.length;j++){if(facts[i].domain===facts[j].domain||facts[i].numbers===facts[j].numbers)continue;const o=overlap(facts[i].sentence,facts[j].sentence);if(o>=.5)out.push({a:facts[i].sentence,b:facts[j].sentence,similarity:o,domains:[facts[i].domain,facts[j].domain]})}return out.slice(0,10)}
+function finalRanking(items,query){const consensusFacts=consensus(items,query),topConsensus=consensusFacts[0],contradictionsFound=contradictions(items,query);return{consensusFacts,contradictionsFound,topConsensus}}
+
+export async function chatresponse(query,{maxResults=DEFAULT_RESULTS,timeoutMs=DEFAULT_TIMEOUT,verify=true}={}){
+ const started=Date.now(),q=clean(query);if(!q)throw new Error('Search query is required');
+ const browser=await browserPromise,context=await browser.newContext({locale:'en-US',javaScriptEnabled:true});context.setDefaultTimeout(Math.max(500,timeoutMs));context.setDefaultNavigationTimeout(Math.max(700,timeoutMs));
+ const variants=queryVariants(q),pages=await Promise.all(variants.map(()=>context.newPage()));
+ try{
+  const discovery=await Promise.allSettled(variants.map((v,i)=>searchOne(pages[i],v,Math.min(Math.max(Number(maxResults)||DEFAULT_RESULTS,4),MAX_RESULTS),timeoutMs)));
+  const snaps=discovery.filter(x=>x.status==='fulfilled').map(x=>x.value);if(!snaps.length)throw new Error('Search engine returned no inspectable DOM results');
+  let results=mergeDiscovery(snaps).sort((a,b)=>rankDiscovery(b,q)-rankDiscovery(a,q));
+  const initial=results.slice(0,Math.min(VERIFY_LIMIT,results.length));
+  let verified=[];
+  if(verify&&initial.length){const sourcePages=await Promise.all(initial.map(()=>context.newPage()));try{const settled=await Promise.allSettled(initial.map((r,i)=>inspectSource(sourcePages[i],r,q,timeoutMs)));verified=settled.filter(x=>x.status==='fulfilled').map(x=>x.value)}finally{await Promise.all(sourcePages.map(p=>p.close().catch(()=>{})))}}
+  const successful=verified.filter(x=>x.verified),final=finalRanking(successful,q),domains=independentDomainCount(successful);
+  const best=final.topConsensus;
+  const winner=successful.sort((a,b)=>{const af=a.facts.reduce((n,f)=>n+f.coverage,0),bf=b.facts.reduce((n,f)=>n+f.coverage,0);return sourceQuality(b.url)*30+bf*35+dateScore(`${b.title} ${b.source?.published||''}`)*10-(sourceQuality(a.url)*30+af*35+dateScore(`${a.title} ${a.source?.published||''}`)*10)})[0]||results[0]||null;
+  const sourceAgreement=best?best.agreement:0,coverage=clamp(snaps.length/variants.length),verification=initial.length?successful.length/initial.length:0,independence=clamp(domains/4),contradictionPenalty=clamp(final.contradictionsFound.length/4)*.35;
+  const evidenceStrength=clamp(sourceAgreement*.38+verification*.18+independence*.16+coverage*.08+(winner?sourceQuality(winner.url):0)*.12+dateScore(`${winner?.title||''} ${winner?.source?.published||''}`)*.08-contradictionPenalty);
+  const confidence=Number(evidenceStrength.toFixed(4));
+  const answer=best?.sentence||winner?.source?.description||winner?.snippet||winner?.title||'No sufficiently supported result found.';
+  const definite=Boolean(best&&best.domainCount>=2&&sourceAgreement>=.72&&final.contradictionsFound.length===0&&confidence>=.86);
+  return{
+   query:q,answer,result:winner,results:results.slice(0,Math.min(12,results.length)),verifiedSources:successful,
+   confidence,definite,
+   evidence:{queryVariants:variants,successfulVariants:snaps.length,verifiedSources:successful.length,independentDomains:domains,consensus:sourceAgreement,topConsensus:best?.sentence||'',contradictions:final.contradictionsFound,sourceQuality:winner?sourceQuality(winner.url):0},
+   method:'multi-query browser search -> live DOM extraction -> canonical URL clustering -> direct source-page verification -> article/main-body extraction -> metadata/JSON-LD inspection -> query-matched evidence sentences -> independent-domain consensus -> numeric conflict detection -> authority/relevance/freshness ranking',
+   dom:{pagesInspected:snaps.length+successful.length,nodeListCount:snaps.reduce((n,s)=>n+s.nodeCount,0),verifiedNodeSources:successful.length},
+   performance:{elapsedMs:Date.now()-started,discoveryPages:variants.length,verificationPages:initial.length},
+   limitations:['No search engine can guarantee universal truth.','A high confidence score means the retrieved evidence agrees; it is not a mathematical proof.','Sources blocked by robots, authentication, paywalls, network errors, or anti-bot systems may not be verifiable.']
+  };
  }finally{await Promise.all(pages.map(p=>p.close().catch(()=>{})));await context.close()}
 }
 export default chatresponse;
