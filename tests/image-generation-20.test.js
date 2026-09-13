@@ -13,7 +13,7 @@ for (const [index, prompt] of prompts.entries()) {
     assert.equal(result.toolResults.at(-1)?.ok, true);
     assert.ok(Array.isArray(result.artifacts?.images));
     assert.equal(result.artifacts.images.length, 1);
-    assert.equal(result.artifacts.images[0].model, 'tonyai-local-image-v1');
+    assert.equal(result.artifacts.images[0].model, 'tonyai-procedural-image-v3');
     assert.equal(result.artifacts.images[0].size, '1024x1024');
     assert.match(result.artifacts.images[0].image, /^data:image\/svg\+xml;base64,/);
     assert.ok(String(result.reply).trim().length > 0);
