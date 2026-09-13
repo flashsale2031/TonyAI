@@ -2,11 +2,18 @@ name: TonyAI capability
 
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tonyai-capability-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   capability:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -14,6 +21,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
       - run: npm test
       - run: npm run lint
-      - run: npm run test:chatbox-100
+      - name: Run 100-question Duck.ai + TonyAI chatbox test
+        env:
+          CI: true
+        run: npm run test:chatbox-100
