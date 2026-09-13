@@ -19,8 +19,7 @@ jobs:
       - run: npm ci
       - name: Install Chromium for Playwright
         run: npx playwright install chromium
-      - name: Run npm test
-        run: npm test
+      - run: npm test
       - run: npm run lint
       - name: Run exactly 100 Duck.ai + TonyAI chatbox tests
-        run: node scripts/chatbox-100-ci-v6.mjs
+        run: node scripts/chatbox-100-ci-v7.mjs
