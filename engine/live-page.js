@@ -1,0 +1,36 @@
+// TONY Live page — deterministic UI for searching live Earth scenes.
+// Search uses the existing server retrieval route; generated animation remains distinct from live source media.
+(() => {
+  if (typeof window === 'undefined' || window.__TONYLivePage) return;
+  window.__TONYLivePage = true;
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const ensureStyles = () => {
+    if (document.getElementById('tony-live-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'tony-live-styles';
+    style.textContent = `.tony-live-overlay{position:fixed;inset:64px 0 0;background:#fff;z-index:18;display:none;overflow:auto}.tony-live-overlay.open{display:block}.tony-live-shell{width:min(1000px,calc(100% - 32px));margin:0 auto;padding:28px 0 140px}.tony-live-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px}.tony-live-title{margin:0;font-size:clamp(1.5rem,4vw,2.25rem);letter-spacing:-.04em}.tony-live-subtitle{margin:6px 0 0;color:#666;line-height:1.45}.tony-live-search{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-bottom:22px}.tony-live-search input{width:100%;min-height:48px;padding:0 15px;border:1px solid #d7d7da;border-radius:13px;outline:none}.tony-live-search input:focus{border-color:#999;box-shadow:0 0 0 3px rgba(0,0,0,.06)}.tony-live-search button{min-height:48px;padding:0 17px;border:0;border-radius:13px;background:#111;color:#fff;cursor:pointer}.tony-live-status{color:#666;min-height:24px;margin-bottom:12px}.tony-live-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.tony-live-card{border:1px solid #e2e2e5;border-radius:16px;padding:16px;background:#fff}.tony-live-card h3{margin:0 0 7px;font-size:1rem}.tony-live-card p{margin:5px 0;color:#666;line-height:1.45}.tony-live-meta{font-size:.78rem;color:#888}.tony-live-open{margin-top:12px;width:100%;min-height:40px;border:1px solid #ddd;border-radius:10px;background:#fafafa;cursor:pointer}.tony-live-empty{padding:28px;border:1px dashed #d7d7da;border-radius:16px;color:#666;text-align:center}@media(max-width:560px){.tony-live-shell{width:calc(100% - 20px)}.tony-live-head{align-items:flex-start;flex-direction:column}.tony-live-search{grid-template-columns:1fr}.tony-live-search button{width:100%}}`;
+    document.head.appendChild(style);
+  };
+  const install = () => {
+    ensureStyles();
+    const menu = document.getElementById('mainMenu');
+    if (!menu || document.getElementById('tonyLiveMenuItem')) return !!menu;
+    const item = document.createElement('button');
+    item.className = 'menu-item'; item.id = 'tonyLiveMenuItem'; item.dataset.action = 'Live';
+    item.innerHTML = '<span class="menu-item-icon">◉</span><span>Live</span>';
+    menu.insertBefore(item, menu.firstChild);
+    const overlay = document.createElement('section');
+    overlay.className = 'tony-live-overlay'; overlay.id = 'tonyLiveOverlay';
+    overlay.setAttribute('aria-label','Live scenes');
+    overlay.innerHTML = `<div class="tony-live-shell"><div class="tony-live-head"><div><h1 class="tony-live-title">Live scenes</h1><p class="tony-live-subtitle">Search for live Earth locations and environments, then open a selected scene in Animation.</p></div><button id="tonyLiveClose" class="icon-btn" aria-label="Close Live">×</button></div><form class="tony-live-search" id="tonyLiveSearch"><input id="tonyLiveQuery" maxlength="240" autocomplete="off" placeholder="Search live scenes, places, environments…" aria-label="Search live scenes"><button type="submit">Search</button></form><div class="tony-live-status" id="tonyLiveStatus">Search for a place or environment to begin.</div><div class="tony-live-results" id="tonyLiveResults"></div></div>`;
+    document.body.appendChild(overlay);
+    const show = () => { overlay.classList.add('open'); document.body.classList.add('tony-live-open'); setTimeout(()=>document.getElementById('tonyLiveQuery')?.focus(),20); };
+    const hide = () => { overlay.classList.remove('open'); document.body.classList.remove('tony-live-open'); };
+    item.addEventListener('click', e => { e.preventDefault(); show(); document.getElementById('mainMenu')?.classList.remove('open'); document.getElementById('menuButton')?.setAttribute('aria-expanded','false'); });
+    document.getElementById('tonyLiveClose').addEventListener('click', hide);
+    const searchForm=document.getElementById('tonyLiveSearch'), status=document.getElementById('tonyLiveStatus'), results=document.getElementById('tonyLiveResults');
+    const search=async q=>{status.textContent='Searching live scene sources…';results.innerHTML='';try{const r=await fetch('/api/search',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({query:q,maxResults:8,safeSearch:'moderate'})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Search failed');const rows=Array.isArray(d.results)?d.results:(Array.isArray(d)?d:[]);if(!rows.length){status.textContent='No matching live-scene sources found.';results.innerHTML='<div class="tony-live-empty">Try a city, landmark, biome, coastline, mountain, forest, desert, or other environment.</div>';return;}status.textContent=`${rows.length} scene sources found.`;results.innerHTML=rows.map((x,i)=>{const title=x.title||x.name||`Live scene ${i+1}`,body=x.description||x.snippet||x.body||'',url=x.url||x.link||'';return `<article class="tony-live-card"><h3>${esc(title)}</h3><p>${esc(body).slice(0,420)}</p><div class="tony-live-meta">${esc(url)}</div><button class="tony-live-open" data-index="${i}">Open in Animation</button></article>`}).join('');results.querySelectorAll('.tony-live-open').forEach((b,i)=>b.addEventListener('click',()=>{const x=rows[i]||{};const scene=`Earth location: ${x.title||x.name||q}. ${x.description||x.snippet||''}`;hide();const composer=document.querySelector('.composer textarea');if(composer){composer.value=`Create an Animation project scene from this live Earth scene source:\n${scene}`;composer.dispatchEvent(new Event('input',{bubbles:true}));composer.focus();}else window.dispatchEvent(new CustomEvent('tony:live-scene',{detail:{scene,source:x}}));}));}catch(e){status.textContent=`Live scene search unavailable: ${e.message}`;results.innerHTML='<div class="tony-live-empty">The search service did not return a result. You can retry without leaving the Live page.</div>';}};
+    searchForm.addEventListener('submit',e=>{e.preventDefault();const q=document.getElementById('tonyLiveQuery').value.trim();if(q)search(q);});
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+})();
