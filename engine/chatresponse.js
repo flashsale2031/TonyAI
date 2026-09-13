@@ -19,7 +19,6 @@ const VERIFY_LIMIT=5,MAX_SOURCE_TEXT=24000,MAX_SENTENCES=160;
 const STOP_WORDS=new Set('a an the and or but if then else for to of in on at by with from into over under about as is are was were be been being this that these those it its they them their your you we our what which who whom where when why how can could should would may might must do does did have has had not no nor than too very more most some any all each every both either neither other another such only own same so just now today current latest new get give find search information answer facts sources official documentation'.split(/\s+/));
 const TRUSTED_DOMAINS=new Set(['wikipedia.org','developer.mozilla.org','docs.python.org','nodejs.org','developer.chrome.com','web.dev','ietf.org','w3.org','nasa.gov','nih.gov','who.int','un.org','github.com','developer.apple.com','learn.microsoft.com','support.google.com']);
 const TRUSTED_SUFFIXES=new Map([['.gov',1],['.edu',.96],['.ac.uk',.96],['.int',.98],['.gov.uk',.99],['.gc.ca',.99]]);
-const browserPromise=chromium.launch({headless:true});
 const clean=v=>String(v??'').replace(/\s+/g,' ').trim();
 const lower=v=>clean(v).toLowerCase();
 const clamp=(n,min=0,max=1)=>Math.max(min,Math.min(max,n));
@@ -83,7 +82,8 @@ function finalRanking(items,query){const consensusFacts=consensus(items,query),t
 
 export async function chatresponse(query,{maxResults=DEFAULT_RESULTS,timeoutMs=DEFAULT_TIMEOUT,verify=true}={}){
  const started=Date.now(),q=clean(query);if(!q)throw new Error('Search query is required');
- const browser=await browserPromise,context=await browser.newContext({locale:'en-US',javaScriptEnabled:true});context.setDefaultTimeout(Math.max(500,timeoutMs));context.setDefaultNavigationTimeout(Math.max(700,timeoutMs));
+ const browser=await chromium.launch({headless:true});
+ const context=await browser.newContext({locale:'en-US',javaScriptEnabled:true});context.setDefaultTimeout(Math.max(500,timeoutMs));context.setDefaultNavigationTimeout(Math.max(700,timeoutMs));
  const variants=queryVariants(q),pages=await Promise.all(variants.map(()=>context.newPage()));
  try{
   const discovery=await Promise.allSettled(variants.map((v,i)=>searchOne(pages[i],v,Math.min(Math.max(Number(maxResults)||DEFAULT_RESULTS,4),MAX_RESULTS),timeoutMs)));
@@ -109,6 +109,6 @@ export async function chatresponse(query,{maxResults=DEFAULT_RESULTS,timeoutMs=D
    performance:{elapsedMs:Date.now()-started,discoveryPages:variants.length,verificationPages:initial.length},
    limitations:['No search engine can guarantee universal truth.','A high confidence score means the retrieved evidence agrees; it is not a mathematical proof.','Sources blocked by robots, authentication, paywalls, network errors, or anti-bot systems may not be verifiable.']
   };
- }finally{await Promise.all(pages.map(p=>p.close().catch(()=>{})));await context.close()}
+ }finally{await Promise.all(pages.map(p=>p.close().catch(()=>{})));await context.close();await browser.close().catch(()=>{})}
 }
 export default chatresponse;
