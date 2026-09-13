@@ -1,0 +1,41 @@
+name: TonyAI real image samples
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Require image provider credential
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: test -n "$OPENAI_API_KEY"
+      - name: Generate 20 real PNG images
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_IMAGE_MODEL: gpt-image-2
+        run: node scripts/generate-real-image-samples.mjs
+      - name: Verify exactly 20 non-empty PNG images
+        run: |
+          count=$(find samples/generated-images -maxdepth 1 -type f -name 'sample-*.png' | wc -l)
+          test "$count" -eq 20
+          find samples/generated-images -maxdepth 1 -type f -name 'sample-*.png' -size +100c | wc -l | grep -qx 20
+      - name: Commit generated images
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add samples/generated-images/*.png
+          git diff --cached --quiet && { echo 'No generated images to commit'; exit 1; }
+          git commit -m 'chore: add 20 real image generation samples [skip ci]'
+          git push origin HEAD:main
