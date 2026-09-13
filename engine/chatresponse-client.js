@@ -11,11 +11,11 @@
   const scroll = () => requestAnimationFrame(() => { const area = getArea(); if (area) area.scrollTop = area.scrollHeight; });
   const statusHtml = (text,detail='') => `<div data-chatresponse-status style="color:#6b6b6b;font-size:.86rem;padding:4px 0 10px">${escapeHtml(text)}${detail ? ` <span style="opacity:.7">${escapeHtml(detail)}</span>` : ''}</div>`;
 
-  function appendAssistant(html, marker='') {
+  function appendRow(role, html, marker='') {
     const messages = getMessages();
     if (!messages) return null;
     const row = document.createElement('div');
-    row.className = 'message assistant';
+    row.className = `message ${role}`;
     if (marker) row.dataset.chatresponse = marker;
     const bubble = document.createElement('div');
     bubble.className = 'message-bubble';
@@ -87,7 +87,7 @@
     }
   }
 
-  function runParallelLocalChat(query, requestId) {
+  function runParallelLocalChat(query, requestId, searchRow) {
     fetch('/api/chat', {
       method:'POST', headers:{'content-type':'application/json'},
       body:JSON.stringify({messages:[{role:'user',content:query}],stream:false}),
@@ -96,11 +96,8 @@
       if (requestId !== state.request || !response.ok) return;
       const result = await response.json();
       const text = clean(result?.choices?.[0]?.message?.content || result?.answer || '');
-      if (!text) return;
-      const searchRows = [...document.querySelectorAll('[data-chatresponse]')];
-      const row = searchRows[searchRows.length - 1];
-      if (!row || requestId !== state.request) return;
-      const bubble = row.querySelector('.message-bubble');
+      if (!text || requestId !== state.request) return;
+      const bubble = searchRow?.querySelector('.message-bubble');
       if (bubble && !bubble.dataset.searchReady) bubble.insertAdjacentHTML('afterbegin', `<div style="margin-bottom:10px">${escapeHtml(text)}</div>`);
     }).catch(() => {});
   }
@@ -115,10 +112,10 @@
     const requestId = state.request;
     const messages = getMessages();
     if (!messages) return;
-    messages.classList.add('has-messages');
-    appendAssistant(statusHtml('Working…','ChatResponse + TonyAI running in parallel'), String(requestId));
-    runSearch(query, messages.lastElementChild, requestId);
-    runParallelLocalChat(query, requestId);
+    appendRow('user', escapeHtml(query));
+    const searchRow = appendRow('assistant', statusHtml('Working…','ChatResponse + TonyAI running in parallel'), String(requestId));
+    runSearch(query, searchRow, requestId);
+    runParallelLocalChat(query, requestId, searchRow);
     input.value = '';
     input.style.height = 'auto';
     const send = document.getElementById('sendButton');
@@ -131,7 +128,7 @@
     if (!composer) return;
     composer.addEventListener('submit', handleSubmit, true);
     window.TonyAIChatResponse = {
-      search: query => { state.request += 1; const row = appendAssistant(statusHtml('Searching live sources…'), String(state.request)); return runSearch(clean(query), row, state.request); },
+      search: query => { state.request += 1; const row = appendRow('assistant', statusHtml('Searching live sources…'), String(state.request)); return runSearch(clean(query), row, state.request); },
       clearCache: () => state.cache.clear()
     };
   }
