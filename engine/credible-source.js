@@ -12,12 +12,24 @@ export function selectMostCredibleSource(sources = []) {
     .sort((a, b) => b.score - a.score || a.index - b.index)[0].source;
 }
 
+function sourceContent(source, pages = []) {
+  if (Array.isArray(source?.claims) && source.claims.length) {
+    return source.claims.map(claim => typeof claim === 'string' ? claim : claim?.text).filter(Boolean).join('\n\n');
+  }
+  const page = Array.isArray(pages) ? pages.find(item => item?.url === source?.url) : null;
+  if (Array.isArray(page?.claims) && page.claims.length) {
+    return page.claims.map(claim => typeof claim === 'string' ? claim : claim?.text).filter(Boolean).join('\n\n');
+  }
+  return '';
+}
+
 export function selectMostCredibleResponse(result = {}) {
+  const pages = Array.isArray(result.pages) ? result.pages : [];
   const sources = [
     ...(Array.isArray(result.verifiedSources) ? result.verifiedSources : []),
-    ...(Array.isArray(result.results) ? result.results : [])
+    ...(Array.isArray(result.results) ? result.results : []),
+    ...pages
   ];
-  const unique = [];
   const byUrl = new Map();
   for (const source of sources) {
     if (!source || typeof source.url !== 'string' || !source.url) continue;
@@ -26,22 +38,31 @@ export function selectMostCredibleResponse(result = {}) {
       byUrl.set(source.url, source);
     }
   }
-  unique.push(...byUrl.values());
 
-  const source = selectMostCredibleSource(unique);
+  const source = selectMostCredibleSource([...byUrl.values()]);
   if (!source) return result;
 
-  const answer = String(source.snippet || source.description || source.title || result.answer || '').trim();
+  const content = sourceContent(source, pages);
+  const answer = content || String(source.snippet || source.description || source.title || result.answer || '').trim();
+  const selectedSource = {
+    ...source,
+    score: scoreOf(source),
+    extractedContent: content,
+    contentMode: content ? 'detailed-source-claims' : 'search-metadata'
+  };
+
   return {
     ...result,
     answer,
-    result: source,
-    results: [source],
-    verifiedSources: [source],
+    result: selectedSource,
+    results: [selectedSource],
+    verifiedSources: [selectedSource],
     selectedSource: {
-      title: source.title || '',
-      url: source.url,
-      score: scoreOf(source)
+      title: selectedSource.title || '',
+      url: selectedSource.url,
+      score: scoreOf(selectedSource),
+      extractedContent: content,
+      contentMode: selectedSource.contentMode
     }
   };
 }
