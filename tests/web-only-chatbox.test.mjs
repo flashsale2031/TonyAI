@@ -34,6 +34,7 @@ test('visible chatbox is web-search-only', () => {
   assert.match(indexHtml, /fetch\(\s*['\"]\/api\/search['\"]/);
   assert.match(indexHtml, /r\.jina\.ai\/http:\/\/html\.duckduckgo\.com\/html/);
   assert.match(indexHtml, /verifiedSources/);
+  assert.match(indexHtml, /This is what I found\./);
   assert.match(indexHtml, /No verified web answer was found\./);
 });
 
@@ -61,6 +62,7 @@ test('chatbox submits a question and renders a live web result', { timeout: 30_0
 
   const rendered = await page.locator('#messages').innerText();
   assert.match(rendered, /Web searched/);
+  assert.match(rendered, /This is what I found\./);
   assert.doesNotMatch(rendered, /I received:/);
   assert.doesNotMatch(rendered, /Ask a question, request a rewrite/);
   assert.match(rendered, /TonyAI live web search smoke test/);
