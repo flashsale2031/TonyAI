@@ -43,4 +43,6 @@ jobs:
           if-no-files-found: warn
       - name: Fail if Duck.ai tests failed
         shell: bash
-        run: test "$(cat duckai-test.status)" = "0"
+        run: |
+          test -s duckai-test.status
+          test "$(cat duckai-test.status)" = "0"
