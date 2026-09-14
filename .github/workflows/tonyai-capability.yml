@@ -40,7 +40,7 @@ jobs:
           path: |
             duckai-test.log
             duckai-test.status
-          if-no-files-found: warn
+          if-no-files-found: error
       - name: Fail if Duck.ai tests failed
         shell: bash
         run: |
