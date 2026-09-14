@@ -65,7 +65,9 @@ async function cachedChatResponse(query,options){
  const key=chatResponseCacheKey(query,options);
  const hit=responseCache.get(key);
  if(hit)return {...hit.value,cache:'hit',cacheAgeMs:Date.now()-hit.created};
- let value=await chatresponse(query,options);
+ let value;
+ let primaryError='';
+ try{value=await chatresponse(query,options);}catch(error){primaryError=String(error?.message||error);value={query:String(query||'').trim(),results:[],verifiedSources:[],confidence:0,definite:false,evidence:{},chatresponseError:primaryError};}
  if(!Array.isArray(value?.results)||value.results.length===0){
   try{
    const fallback=await duckduckgoSearch(query,{maxResults:options?.maxResults||8});
@@ -73,7 +75,7 @@ async function cachedChatResponse(query,options){
     const first=fallback.results[0];
     value={...value,answer:first.snippet||first.title,result:first,results:fallback.results,verifiedSources:[],confidence:.62,definite:false,evidence:{...(value.evidence||{}),fallbackProvider:'DuckDuckGo HTML search'},fallbackProvider:'DuckDuckGo'};
    }
-  }catch{}
+  }catch(error){if(primaryError)value.chatresponseError=primaryError;}
  }
  responseCache.set(key,{created:Date.now(),value});
  return {...value,cache:'miss',cacheAgeMs:0};
