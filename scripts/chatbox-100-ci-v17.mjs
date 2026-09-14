@@ -16,7 +16,7 @@ async function ready(){for(let i=0;i<150;i++){try{if((await fetch(`${BASE}/healt
 const ignored=new Set(['what','does','this','that','with','from','into','when','where','which','about','explain','define','difference','between','should','would','could','there','their','than','then','have','your','will','most','some','used','using','make','more','less']);
 const words=s=>String(s).toLowerCase().match(/[a-z0-9]+/g)||[];
 function validate(q,a){a=String(a).trim().toLowerCase();if(a.length<12)return'answer too short';if(/live search unavailable|search unavailable|unable to search|no results available/.test(a))return'search failure';const c=[...new Set(words(q).filter(w=>w.length>=4&&!ignored.has(w)))];return c.length&&!c.some(w=>a.includes(w))?'answer has no query-term overlap':null;}
-const server=spawn(process.execPath,['server.js'],{cwd:process.cwd(),stdio:'inherit',env:{...process.env,PORT:'3000'}});
+const server=spawn(process.execPath,['server.js'],{cwd:process.cwd(),stdio:'inherit',env:{...process.env,PORT:'3000'} });
 let browser;let totalPassed=0;const failures=[];
 try{
  await ready();
@@ -39,10 +39,7 @@ try{
        const duck=await page.evaluate(text=>window.TonyAIChatResponse.duckAiUrl(text),q);
        const expected=new URL('https://duck.ai/chat');expected.searchParams.set('prompt','1');expected.searchParams.set('q',q);
        if(duck!==expected.toString())throw new Error('Duck.ai URL mismatch');
-       // Fire the same browser bridge used by the chatbox, but do not block the
-       // 100-test gate on background live-search network work. The gate observes
-       // the rendered row/status, which is what the user actually sees.
-       await page.evaluate(text=>{void window.TonyAIChatResponse.search(text);},q);
+       await page.evaluate(text=>{window.TonyAIChatResponse.search(text);return true;},q);
        await page.waitForFunction(({count})=>document.querySelectorAll('[data-chatresponse]').length>count,{count:before});
        const row=page.locator('[data-chatresponse]').last();
        await row.locator('[data-chatresponse-status]').waitFor({state:'detached',timeout:8000}).catch(()=>{});
