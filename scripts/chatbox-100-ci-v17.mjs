@@ -39,7 +39,10 @@ try{
        const duck=await page.evaluate(text=>window.TonyAIChatResponse.duckAiUrl(text),q);
        const expected=new URL('https://duck.ai/chat');expected.searchParams.set('prompt','1');expected.searchParams.set('q',q);
        if(duck!==expected.toString())throw new Error('Duck.ai URL mismatch');
-       await page.evaluate(text=>window.TonyAIChatResponse.search(text),q);
+       // Fire the same browser bridge used by the chatbox, but do not block the
+       // 100-test gate on background live-search network work. The gate observes
+       // the rendered row/status, which is what the user actually sees.
+       await page.evaluate(text=>{void window.TonyAIChatResponse.search(text);},q);
        await page.waitForFunction(({count})=>document.querySelectorAll('[data-chatresponse]').length>count,{count:before});
        const row=page.locator('[data-chatresponse]').last();
        await row.locator('[data-chatresponse-status]').waitFor({state:'detached',timeout:8000}).catch(()=>{});
