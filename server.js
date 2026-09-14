@@ -77,6 +77,9 @@ async function cachedChatResponse(query,options){
    }
   }catch(error){if(primaryError)value.chatresponseError=primaryError;}
  }
+ if(!Array.isArray(value?.results)||value.results.length===0){
+  value={...value,answer:`Live sources could not be verified for this request. Requested topic: ${String(query||'').trim()}`,result:null,results:[],verifiedSources:[],confidence:0,definite:false};
+ }
  responseCache.set(key,{created:Date.now(),value});
  return {...value,cache:'miss',cacheAgeMs:0};
 }
