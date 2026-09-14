@@ -42,7 +42,8 @@ try{
        await page.evaluate(text=>{window.TonyAIChatResponse.search(text);return true;},q);
        await page.waitForFunction(({count})=>document.querySelectorAll('[data-chatresponse]').length>count,{count:before});
        const row=page.locator('[data-chatresponse]').last();
-       await row.locator('[data-chatresponse-status]').waitFor({state:'detached',timeout:8000}).catch(()=>{});
+       await row.locator('.message-bubble').waitFor({state:'visible',timeout:5000});
+       await page.waitForFunction(()=>{const r=document.querySelector('[data-chatresponse]:last-of-type');const b=r?.querySelector('.message-bubble');return Boolean(b?.dataset.searchReady||b?.dataset.localReady);},{timeout:5000});
        const answer=await row.innerText();const error=validate(q,answer);if(error)throw new Error(`${error}\nA: ${answer}`);
        partPassed++;totalPassed++;console.log(`DUCKAI_PART ${part+1}/10 TEST ${offset+1}/10 PASS (global ${totalPassed}/100)`);
      }catch(error){failures.push({index:index+1,part:part+1,question:q,error:String(error?.message||error)});console.error(`DUCKAI_PART ${part+1}/10 TEST ${offset+1}/10 FAIL`);console.error(failures.at(-1));}
