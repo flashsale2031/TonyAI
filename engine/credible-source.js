@@ -20,6 +20,8 @@ function sourceContent(source, pages = []) {
   if (Array.isArray(page?.claims) && page.claims.length) {
     return page.claims.map(claim => typeof claim === 'string' ? claim : claim?.text).filter(Boolean).join('\n\n');
   }
+  if (typeof source?.text === 'string' && source.text.trim()) return source.text.trim();
+  if (typeof page?.text === 'string' && page.text.trim()) return page.text.trim();
   return '';
 }
 
@@ -34,9 +36,7 @@ export function selectMostCredibleResponse(result = {}) {
   for (const source of sources) {
     if (!source || typeof source.url !== 'string' || !source.url) continue;
     const existing = byUrl.get(source.url);
-    if (!existing || scoreOf(source) > scoreOf(existing)) {
-      byUrl.set(source.url, source);
-    }
+    if (!existing || scoreOf(source) > scoreOf(existing)) byUrl.set(source.url, source);
   }
 
   const source = selectMostCredibleSource([...byUrl.values()]);
@@ -48,7 +48,12 @@ export function selectMostCredibleResponse(result = {}) {
     ...source,
     score: scoreOf(source),
     extractedContent: content,
-    contentMode: content ? 'detailed-source-claims' : 'search-metadata'
+    contentMode: content ? 'detailed-source-content' : 'search-metadata',
+    // The chatbox currently renders source.snippet in its source card. Point that
+    // field at inspected webpage content so the UI cannot fall back to the
+    // DuckDuckGo snippet when a real page was successfully inspected.
+    snippet: content || source.snippet || '',
+    description: content || source.description || ''
   };
 
   return {
