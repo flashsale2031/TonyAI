@@ -21,13 +21,13 @@ jobs:
         run: npx playwright install chromium
       - run: npm test
       - run: npm run lint
-      - name: Run exactly 100 Duck.ai + TonyAI chatbox tests
+      - name: Run exactly 100 Duck.ai + TonyAI chatbox tests in 10 parts
         id: duckai
         continue-on-error: true
         shell: bash
         run: |
           set +e
-          node scripts/chatbox-100-ci-v16.mjs > duckai-test.log 2>&1
+          node scripts/chatbox-100-ci-v17.mjs > duckai-test.log 2>&1
           status=$?
           cat duckai-test.log
           printf '%s' "$status" > duckai-test.status
