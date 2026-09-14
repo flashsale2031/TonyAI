@@ -11,7 +11,7 @@ test('selects the highest-scoring source', () => {
   assert.equal(selectMostCredibleSource(sources).title, 'Most credible');
 });
 
-test('uses detailed claims from the selected credible webpage', () => {
+test('uses detailed webpage content instead of the search-engine snippet', () => {
   const result = selectMostCredibleResponse({
     answer: 'Aggregate answer that should not be rendered.',
     pages: [
@@ -35,5 +35,7 @@ test('uses detailed claims from the selected credible webpage', () => {
   assert.equal(result.verifiedSources.length, 1);
   assert.equal(result.selectedSource.title, 'Best source page');
   assert.equal(result.selectedSource.score, 96);
-  assert.equal(result.selectedSource.contentMode, 'detailed-source-claims');
+  assert.equal(result.selectedSource.contentMode, 'detailed-source-content');
+  assert.match(result.results[0].snippet, /first supported fact/);
+  assert.doesNotMatch(result.results[0].snippet, /Search snippet only/);
 });
