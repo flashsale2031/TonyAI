@@ -11,19 +11,29 @@ test('selects the highest-scoring source', () => {
   assert.equal(selectMostCredibleSource(sources).title, 'Most credible');
 });
 
-test('returns only the most credible source and uses its response text', () => {
+test('uses detailed claims from the selected credible webpage', () => {
   const result = selectMostCredibleResponse({
     answer: 'Aggregate answer that should not be rendered.',
+    pages: [
+      {
+        title: 'Best source page',
+        url: 'https://example.gov/best',
+        claims: ['The authoritative page states the first supported fact.', 'The same page provides a second supported fact.'],
+        score: { total: 96 }
+      }
+    ],
     results: [
       { title: 'Lower source', url: 'https://example.com/lower', snippet: 'Lower response', score: { total: 58 } },
-      { title: 'Best source', url: 'https://example.gov/best', snippet: 'Most credible response', score: { total: 96 } }
+      { title: 'Best source', url: 'https://example.gov/best', snippet: 'Search snippet only', score: { total: 96 } }
     ],
     verifiedSources: []
   });
 
-  assert.equal(result.answer, 'Most credible response');
+  assert.match(result.answer, /first supported fact/);
+  assert.match(result.answer, /second supported fact/);
   assert.equal(result.results.length, 1);
   assert.equal(result.verifiedSources.length, 1);
-  assert.equal(result.selectedSource.title, 'Best source');
+  assert.equal(result.selectedSource.title, 'Best source page');
   assert.equal(result.selectedSource.score, 96);
+  assert.equal(result.selectedSource.contentMode, 'detailed-source-claims');
 });
