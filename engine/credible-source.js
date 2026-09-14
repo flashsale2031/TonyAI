@@ -17,7 +17,17 @@ export function selectMostCredibleResponse(result = {}) {
     ...(Array.isArray(result.verifiedSources) ? result.verifiedSources : []),
     ...(Array.isArray(result.results) ? result.results : [])
   ];
-  const unique = [...new Map(sources.map(source => [source.url, source])).values()];
+  const unique = [];
+  const byUrl = new Map();
+  for (const source of sources) {
+    if (!source || typeof source.url !== 'string' || !source.url) continue;
+    const existing = byUrl.get(source.url);
+    if (!existing || scoreOf(source) > scoreOf(existing)) {
+      byUrl.set(source.url, source);
+    }
+  }
+  unique.push(...byUrl.values());
+
   const source = selectMostCredibleSource(unique);
   if (!source) return result;
 
