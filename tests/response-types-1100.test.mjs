@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RESPONSE_TYPES, classifyResponseType, extractAnswerForType } from '../engine/response-types-runtime.js';
+import { RESPONSE_TYPES, classifyResponseType, extractAnswerForType, buildPageSearchProfile } from '../engine/response-types-runtime.js';
 
-test('TonyAI exposes 1100 response types', () => {
-  assert.equal(RESPONSE_TYPES.length, 1100);
-  assert.equal(new Set(RESPONSE_TYPES.map(type => type.id)).size, 1100);
+test('TonyAI exposes 11,100 response types', () => {
+  assert.equal(RESPONSE_TYPES.length, 11100);
+  assert.equal(new Set(RESPONSE_TYPES.map(type => type.id)).size, 11100);
 });
 
 test('temperature remains a Degrees response type', () => {
@@ -24,11 +24,28 @@ test('page extraction prioritizes characteristics for a specialized type', () =>
   assert.ok(result.characteristics.length > 0);
 });
 
-test('generated domain-intent types carry page-search characteristics', () => {
+test('generated 1,000-type extension carries page-search characteristics', () => {
   const type = RESPONSE_TYPES.find(item => item.id === 'ext-sports-schedule');
   assert.ok(type);
   assert.match(type.name, /Sports/);
   assert.match(type.name, /Schedule/);
   assert.ok(type.characteristics.includes('schedule'));
   assert.ok(type.searchProfile.includes('date'));
+});
+
+test('generated 10,000-type expansion carries unique search characteristics', () => {
+  const type = RESPONSE_TYPES.find(item => item.id === 'mega-sports-schedule');
+  assert.ok(type);
+  assert.match(type.name, /Sports/);
+  assert.match(type.name, /Schedule/);
+  assert.ok(type.characteristics.includes('sports'));
+  assert.ok(type.characteristics.includes('schedule'));
+  assert.ok(type.searchProfile.includes('next'));
+});
+
+test('page search profile exposes type-specific web search signals', () => {
+  const profile = buildPageSearchProfile('What is the current price of a product?');
+  assert.ok(profile.type);
+  assert.ok(profile.searchTerms.length > 0);
+  assert.ok(profile.signals.includes('price'));
 });
