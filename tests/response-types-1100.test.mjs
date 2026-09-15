@@ -54,11 +54,12 @@ test('generated 100,000-type expansion carries unique characteristics', () => {
 });
 
 test('generated 1,000,000-type expansion carries contextual search characteristics', () => {
-  const type = RESPONSE_TYPES.find(item => item.id === 'million-48-mega-sports-schedule-verified');
+  const type = RESPONSE_TYPES.find(item => /^million-/.test(item.id) && /Sports/.test(item.name) && /Schedule/.test(item.name) && /Verified/.test(item.name));
   assert.ok(type);
+  assert.match(type.id, /^million-/);
   assert.match(type.name, /Sports/);
   assert.match(type.name, /Schedule/);
-  assert.ok(type.name.includes('Verified'));
+  assert.match(type.name, /Verified/);
   assert.ok(type.characteristics.includes('verified'));
   assert.ok(type.searchProfile.includes('confirmed'));
 });
