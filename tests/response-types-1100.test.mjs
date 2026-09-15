@@ -1,16 +1,37 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RESPONSE_TYPES, classifyResponseType, extractAnswerForType, buildPageSearchProfile } from '../engine/response-types-runtime.js';
+import { HUNDRED_BILLION_RESPONSE_TYPES } from '../engine/response-types-100b.js';
 
-test('TonyAI exposes 11,111,100 response types', () => {
-  assert.equal(RESPONSE_TYPES.length, 11111100);
-  assert.equal(new Set(RESPONSE_TYPES.map(type => type.id)).size, 11111100);
+test('TonyAI exposes 100,111,111,100 virtual response types', () => {
+  assert.equal(RESPONSE_TYPES.length, 100111111100);
+  assert.equal(HUNDRED_BILLION_RESPONSE_TYPES.length, 100000000000);
+});
+
+test('100B response types are uniquely addressable without materializing the collection', () => {
+  const a = HUNDRED_BILLION_RESPONSE_TYPES.get(0);
+  const b = HUNDRED_BILLION_RESPONSE_TYPES.get(99999999999);
+  const c = HUNDRED_BILLION_RESPONSE_TYPES.get(50000001234);
+  assert.ok(a && b && c);
+  assert.notEqual(a.id, b.id);
+  assert.notEqual(a.id, c.id);
+  assert.notEqual(b.id, c.id);
+  assert.match(a.id, /^100b-/);
+  assert.ok(a.characteristics.length > 0);
+  assert.ok(a.searchProfile.length > 0);
 });
 
 test('temperature remains a Degrees response type', () => {
   const type = classifyResponseType("What's the temperature in Miami now?");
   assert.equal(type.unit, '°');
   assert.match(type.name, /Weather|Temperature/i);
+});
+
+test('100B contextual classification returns a concrete type with web-search characteristics', () => {
+  const type = classifyResponseType('What is the latest official price of this product?');
+  assert.match(type.id, /^100b-/);
+  assert.ok(type.characteristics.includes('price'));
+  assert.ok(type.searchProfile.length > 0);
 });
 
 test('page extraction prioritizes characteristics for a specialized type', () => {
@@ -61,23 +82,10 @@ test('generated 1,000,000-type expansion carries contextual search characteristi
   assert.ok(type.searchProfile.includes('confirmed'));
 });
 
-test('generated 10,000,000-type expansion carries contextual search characteristics', () => {
-  const type = RESPONSE_TYPES.find(item => /^10m-/.test(item.id) && /Sports/.test(item.name) && /Schedule/.test(item.name) && /Verified/.test(item.name));
-  assert.ok(type);
-  assert.match(type.id, /^10m-/);
-  assert.ok(type.characteristics.includes('verified'));
-  assert.ok(type.searchProfile.includes('confirmed'));
-});
-
-test('contextual classification returns a concrete 10M-layer type', () => {
-  const type = classifyResponseType('What is the latest official sports schedule?');
-  assert.match(type.id, /^10m-/);
-  assert.ok(type.searchProfile.length > 0);
-});
-
 test('page search profile exposes type-specific web search signals', () => {
   const profile = buildPageSearchProfile('What is the current price of a product?');
   assert.ok(profile.type);
+  assert.match(profile.type.id, /^100b-/);
   assert.ok(profile.searchTerms.length > 0);
   assert.ok(profile.signals.includes('price'));
 });
