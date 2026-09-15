@@ -78,13 +78,12 @@ const INTENTS = [
 function makeType(domain, intent) {
   const [did, dname, dkeywords, dchars] = domain;
   const [iid, iname, ikeywords, ichars] = intent;
-  const unit = iid === 'percentage' ? '%' : '';
   return {
-    id: `${did}-${iid}`,
+    id: `ext-${did}-${iid}`,
     name: `${dname} — ${iname}`,
     keywords: [...dkeywords, ...ikeywords, `${dname.toLowerCase()} ${iname.toLowerCase()}`],
     characteristics: [...new Set([...dchars, ...ichars])],
-    unit,
+    unit: iid === 'percentage' ? '%' : '',
     domain: did,
     intent: iid,
     searchProfile: [...new Set([...dkeywords, ...dchars, ...ikeywords, ...ichars])]
@@ -92,20 +91,7 @@ function makeType(domain, intent) {
 }
 
 export const EXTENDED_RESPONSE_TYPES = DOMAINS.flatMap(domain => INTENTS.map(intent => makeType(domain, intent)));
-
-if (EXTENDED_RESPONSE_TYPES.length !== 1000) {
-  throw new Error(`Expected 1000 extended response types, got ${EXTENDED_RESPONSE_TYPES.length}`);
-}
-
+if (EXTENDED_RESPONSE_TYPES.length !== 1000) throw new Error(`Expected 1000 extended response types, got ${EXTENDED_RESPONSE_TYPES.length}`);
 export const RESPONSE_TYPES = [...BASE_TYPES, ...EXTENDED_RESPONSE_TYPES];
 export const RESPONSE_TYPE_COUNT = RESPONSE_TYPES.length;
-
-export function getResponseTypeProfile(type) {
-  return {
-    id: type.id,
-    name: type.name,
-    characteristics: type.characteristics,
-    searchTerms: type.searchProfile || type.characteristics,
-    unit: type.unit || ''
-  };
-}
+export function getResponseTypeProfile(type) { return { id:type.id, name:type.name, characteristics:type.characteristics, searchTerms:type.searchProfile||type.characteristics, unit:type.unit||'' }; }
