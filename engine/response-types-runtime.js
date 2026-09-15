@@ -3,8 +3,14 @@ import { RESPONSE_TYPES as MEGA_TYPES } from './response-types-mega.js';
 import { RESPONSE_TYPES as HUNDRED_K_TYPES } from './response-types-100k.js';
 import { MILLION_RESPONSE_TYPES } from './response-types-million.js';
 import { TEN_MILLION_RESPONSE_TYPES } from './response-types-10m.js';
-import { HUNDRED_MILLION_RESPONSE_TYPES } from './response-types-100m.js';
+// Use a namespace import so a stale Pages deployment cannot crash the entire
+// module graph when the 100m export name changes between deployments.
+import * as HUNDRED_M_TYPES_MODULE from './response-types-100m.js';
 import { HUNDRED_BILLION_RESPONSE_TYPES } from './response-types-100b.js';
+
+const HUNDRED_MILLION_RESPONSE_TYPES = HUNDRED_M_TYPES_MODULE.HUNDRED_MILLION_RESPONSE_TYPES
+  || HUNDRED_M_TYPES_MODULE.TEN_MILLION_RESPONSE_TYPES
+  || { length: 0, get: () => undefined };
 
 // Keep startup memory bounded: only the small anchor index is materialized.
 const BASE_TYPES=[...EXTENDED_TYPES,...MEGA_TYPES.filter(type=>!EXTENDED_TYPES.some(existing=>existing.id===type.id)),...HUNDRED_K_TYPES];
@@ -26,15 +32,12 @@ export const RESPONSE_TYPES={
     return HUNDRED_BILLION_RESPONSE_TYPES.get(i);
   },
   find(predicate){
-    // Finding through the virtual 100B tail is intentionally bounded. The
-    // runtime's classifier uses the anchor index rather than scanning 100B.
+    // Finding through the virtual 100B tail is intentionally bounded.
     const limit=BASE_COUNT+MILLION_COUNT;
     for(let i=0;i<limit;i++){const t=this.get(i);if(t&&predicate(t,i,this))return t;}
     return undefined;
   },
   forEach(callback){
-    // forEach is restricted to materializable anchors; virtual layers expose
-    // get(index) for direct indexed access instead of accidental full scans.
     for(let i=0;i<BASE_COUNT;i++)callback(this.get(i),i,this);
   }
 };
