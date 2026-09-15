@@ -1,19 +1,19 @@
-import { RESPONSE_TYPES as EXTENDED_TYPES } from './response-types-extended.js';
 import { RESPONSE_TYPES as MEGA_TYPES } from './response-types-mega.js';
 import { RESPONSE_TYPES as HUNDRED_K_TYPES } from './response-types-100k.js';
 import { MILLION_RESPONSE_TYPES } from './response-types-million.js';
 import { TEN_MILLION_RESPONSE_TYPES } from './response-types-10m.js';
-// Use a namespace import so a stale Pages deployment cannot crash the entire
-// module graph when the 100m export name changes between deployments.
 import * as HUNDRED_M_TYPES_MODULE from './response-types-100m.js';
 import { HUNDRED_BILLION_RESPONSE_TYPES } from './response-types-100b.js';
 
+// The legacy extended catalog currently contains 980 generated records and
+// throws while importing because it asserts 1,000. Keep the live browser
+// runtime independent of that stale assertion; the mega catalog already
+// supplies the same weather/current-information classification signals.
 const HUNDRED_MILLION_RESPONSE_TYPES = HUNDRED_M_TYPES_MODULE.HUNDRED_MILLION_RESPONSE_TYPES
   || HUNDRED_M_TYPES_MODULE.TEN_MILLION_RESPONSE_TYPES
   || { length: 0, get: () => undefined };
 
-// Keep startup memory bounded: only the small anchor index is materialized.
-const BASE_TYPES=[...EXTENDED_TYPES,...MEGA_TYPES.filter(type=>!EXTENDED_TYPES.some(existing=>existing.id===type.id)),...HUNDRED_K_TYPES];
+const BASE_TYPES=[...MEGA_TYPES,...HUNDRED_K_TYPES];
 const MILLION_COUNT=MILLION_RESPONSE_TYPES.length;
 const BASE_COUNT=BASE_TYPES.length;
 const TOTAL_COUNT=BASE_COUNT+MILLION_COUNT+TEN_MILLION_RESPONSE_TYPES.length+HUNDRED_MILLION_RESPONSE_TYPES.length+HUNDRED_BILLION_RESPONSE_TYPES.length;
@@ -32,7 +32,6 @@ export const RESPONSE_TYPES={
     return HUNDRED_BILLION_RESPONSE_TYPES.get(i);
   },
   find(predicate){
-    // Finding through the virtual 100B tail is intentionally bounded.
     const limit=BASE_COUNT+MILLION_COUNT;
     for(let i=0;i<limit;i++){const t=this.get(i);if(t&&predicate(t,i,this))return t;}
     return undefined;
@@ -45,7 +44,7 @@ export const RESPONSE_TYPE_COUNT=RESPONSE_TYPES.length;
 export const FALLBACK_RESPONSE_TYPE={id:'generic-factual',name:'General factual answer',keywords:[],characteristics:['answer','fact','source','page'],unit:''};
 const escapeRegex=v=>String(v).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 const has=(text,token)=>{if(!token)return false;if(/[^a-z0-9]/i.test(token))return text.toLowerCase().includes(token.toLowerCase());return new RegExp(`(^|[^a-z0-9])${escapeRegex(token)}([^a-z0-9]|$)`,'i').test(text);};
-const ANCHOR_TYPES=[...EXTENDED_TYPES,...MEGA_TYPES.filter(type=>!EXTENDED_TYPES.some(existing=>existing.id===type.id)),...HUNDRED_K_TYPES];
+const ANCHOR_TYPES=[...MEGA_TYPES,...HUNDRED_K_TYPES];
 const ANCHOR_INDEX=ANCHOR_TYPES.map(type=>({type,keywords:(type.keywords||[]).map(String)}));
 const MEGA_ANCHOR_INDEX=new Map(MEGA_TYPES.map((type,index)=>[type.id,index]));
 const CONTEXT_SIGNALS=[['current',['current','now','today','latest']],['official',['official','authorized','published']],['verified',['verified','confirmed','validated']],['local',['local','nearby','regional']],['historical',['historical','history','background']],['quantitative',['number','count','price','rate','percentage','average','median']],['comparison',['compare','difference','versus','vs']],['ranking',['best','top','ranking']],['schedule',['schedule','date','time','when']],['location',['where','location','near']],['process',['how','steps','process']],['evidence',['evidence','source','citation','proof']]];
@@ -55,5 +54,5 @@ function queryVariant(question){let hash=2166136261;for(const char of String(que
 function generatedVariant(anchor,context,question){const megaIndex=MEGA_ANCHOR_INDEX.get(anchor.id);if(megaIndex==null)return null;const contextIndex=(context.index*7919+queryVariant(question))%10000000;return HUNDRED_BILLION_RESPONSE_TYPES.get(megaIndex*10000000+contextIndex)||TEN_MILLION_RESPONSE_TYPES.get(megaIndex*(TEN_MILLION_RESPONSE_TYPES.length/MEGA_TYPES.length)+(contextIndex%1000))||HUNDRED_MILLION_RESPONSE_TYPES.get(megaIndex*10000+(contextIndex%10000));}
 export function classifyResponseType(question=''){const q=String(question).toLowerCase(),anchor=classifyAnchor(q),context=chooseContext(q),variant=generatedVariant(anchor.type,context,q);return variant?{...variant,score:anchor.score+context.score,anchorType:anchor.type.id}:{...anchor.type,score:anchor.score,anchorType:anchor.type.id};}
 function blocks(text){return String(text||'').replace(/\r/g,'').split(/(?<=[.!?])\s+|\n+/).map(v=>v.replace(/\s+/g,' ').trim()).filter(v=>v.length>=20&&v.length<=900);}
-export function extractAnswerForType(text,question,type=classifyResponseType(question)){const terms=String(question||'').toLowerCase().split(/[^a-z0-9°]+/).filter(v=>v.length>2),source=String(text||'');const ranked=blocks(source).map((block,index)=>{const lower=block.toLowerCase(),characteristicHits=(type.characteristics||[]).filter(value=>has(lower,value)).length,questionHits=terms.filter(value=>lower.includes(value)).length,valueMatches=type.id==='temperature'?(block.match(/[-+]?\d+(?:\.\d+)?\s*(?:°\s*[FCfc]|degrees?\s*(?:Fahrenheit|Celsius|F|C)?|Fahrenheit|Celsius)/g)||[]):[];return{block,index,score:characteristicHits*6+questionHits*2+valueMatches.length*14,valueMatches};}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||a.index-b.index);const selected=[],seen=new Set();for(const item of ranked){if(seen.has(item.block))continue;seen.add(item.block);selected.push(item);if(selected.length===8)break;}return{typeId:type.id,responseType:type.name,unit:type.unit||'',characteristics:(type.characteristics||[]).filter(value=>has(source.toLowerCase(),value)),valueMatches:selected.flatMap(x=>x.valueMatches),facts:selected.map(x=>x.block),matchScore:selected[0]?.score||0};}
+export function extractAnswerForType(text,question,type=classifyResponseType(question)){const terms=String(question||'').toLowerCase().split(/[^a-z0-9°]+/).filter(v=>v.length>2),source=String(text||'');const ranked=blocks(source).map((block,index)=>{const lower=block.toLowerCase(),characteristicHits=(type.characteristics||[]).filter(value=>has(lower,value)).length,questionHits=terms.filter(value=>lower.includes(value)).length,valueMatches=type.domain==='weather'||type.id==='temperature'?(block.match(/[-+]?\d+(?:\.\d+)?\s*(?:°\s*[FCfc]|degrees?\s*(?:Fahrenheit|Celsius|F|C)?|Fahrenheit|Celsius)/g)||[]):[];return{block,index,score:characteristicHits*6+questionHits*2+valueMatches.length*14,valueMatches};}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||a.index-b.index);const selected=[],seen=new Set();for(const item of ranked){if(seen.has(item.block))continue;seen.add(item.block);selected.push(item);if(selected.length===8)break;}return{typeId:type.id,responseType:type.name,unit:type.unit||'',characteristics:(type.characteristics||[]).filter(value=>has(source.toLowerCase(),value)),valueMatches:selected.flatMap(x=>x.valueMatches),facts:selected.map(x=>x.block),matchScore:selected[0]?.score||0};}
 export function buildPageSearchProfile(question=''){const type=classifyResponseType(question),characteristics=[...new Set(type.characteristics||[])],searchTerms=[...new Set(type.searchProfile||characteristics)].slice(0,24);return{query:String(question),type,characteristics,searchTerms,signals:searchTerms.join(' OR ')};}
