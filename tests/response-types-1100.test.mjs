@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RESPONSE_TYPES, classifyResponseType, extractAnswerForType, buildPageSearchProfile } from '../engine/response-types-runtime.js';
 
-test('TonyAI exposes 11,100 response types', () => {
-  assert.equal(RESPONSE_TYPES.length, 11100);
-  assert.equal(new Set(RESPONSE_TYPES.map(type => type.id)).size, 11100);
+test('TonyAI exposes 111,100 response types', () => {
+  assert.equal(RESPONSE_TYPES.length, 111100);
+  assert.equal(new Set(RESPONSE_TYPES.map(type => type.id)).size, 111100);
 });
 
 test('temperature remains a Degrees response type', () => {
@@ -41,6 +41,16 @@ test('generated 10,000-type expansion carries unique search characteristics', ()
   assert.ok(type.characteristics.includes('sports'));
   assert.ok(type.characteristics.includes('schedule'));
   assert.ok(type.searchProfile.includes('next'));
+});
+
+test('generated 100,000-type expansion carries unique characteristics', () => {
+  const type = RESPONSE_TYPES.find(item => item.id === '100k-sports-schedule-verified');
+  assert.ok(type);
+  assert.match(type.name, /Sports/);
+  assert.match(type.name, /Schedule/);
+  assert.match(type.name, /Verified/);
+  assert.ok(type.characteristics.includes('verified'));
+  assert.ok(type.searchProfile.includes('confirmed'));
 });
 
 test('page search profile exposes type-specific web search signals', () => {
