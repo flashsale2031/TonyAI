@@ -1,6 +1,8 @@
-import { RESPONSE_TYPES as ALL_TYPES } from './response-types-extended.js';
+import { RESPONSE_TYPES as EXTENDED_TYPES } from './response-types-extended.js';
+import { RESPONSE_TYPES as MEGA_TYPES } from './response-types-mega.js';
 
-export const RESPONSE_TYPES = ALL_TYPES.slice(0, 1100);
+// 100 base + 1,000 extended + 10,000 mega response types.
+export const RESPONSE_TYPES = [...EXTENDED_TYPES, ...MEGA_TYPES.filter(type => !EXTENDED_TYPES.some(existing => existing.id === type.id))];
 export const FALLBACK_RESPONSE_TYPE = {
   id: 'generic-factual',
   name: 'General factual answer',
@@ -43,10 +45,10 @@ export function extractAnswerForType(text, question, type = classifyResponseType
     const lower = block.toLowerCase();
     const characteristicHits = (type.characteristics || []).filter(value => has(lower, value)).length;
     const questionHits = terms.filter(value => lower.includes(value)).length;
-    const temperatureValues = type.id === 'temperature'
+    const valueMatches = type.id === 'temperature'
       ? (block.match(/[-+]?\d+(?:\.\d+)?\s*(?:°\s*[FCfc]|degrees?\s*(?:Fahrenheit|Celsius|F|C)?|Fahrenheit|Celsius)/g) || [])
       : [];
-    return { block, index, score: characteristicHits * 6 + questionHits * 2 + temperatureValues.length * 14, characteristicHits, questionHits, valueMatches: temperatureValues };
+    return { block, index, score: characteristicHits * 6 + questionHits * 2 + valueMatches.length * 14, characteristicHits, questionHits, valueMatches };
   }).filter(item => item.score > 0).sort((a, b) => b.score - a.score || a.index - b.index);
 
   const selected = [];
@@ -71,5 +73,12 @@ export function extractAnswerForType(text, question, type = classifyResponseType
 
 export function buildPageSearchProfile(question = '') {
   const type = classifyResponseType(question);
-  return { type, characteristics: type.characteristics || [], signals: (type.searchProfile || type.characteristics || []).join(' OR ') };
+  const characteristics = [...new Set(type.characteristics || [])];
+  const searchTerms = [...new Set(type.searchProfile || characteristics)].slice(0, 12);
+  return {
+    type,
+    characteristics,
+    searchTerms,
+    signals: searchTerms.join(' OR ')
+  };
 }
