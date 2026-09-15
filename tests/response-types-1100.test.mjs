@@ -25,10 +25,10 @@ test('page extraction prioritizes characteristics for a specialized type', () =>
 });
 
 test('generated domain-intent types carry page-search characteristics', () => {
-  const type = RESPONSE_TYPES.find(item => item.id === 'sports-schedule');
+  const type = RESPONSE_TYPES.find(item => item.id === 'ext-sports-schedule');
   assert.ok(type);
   assert.match(type.name, /Sports/);
   assert.match(type.name, /Schedule/);
   assert.ok(type.characteristics.includes('schedule'));
-  assert.ok(type.searchProfile.includes('opponent') || type.searchProfile.includes('date'));
+  assert.ok(type.searchProfile.includes('date'));
 });
