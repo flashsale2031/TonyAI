@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RESPONSE_TYPES, classifyResponseType, extractAnswerForType, buildPageSearchProfile } from '../engine/response-types-runtime.js';
 
-test('TonyAI exposes 1,111,100 response types', () => {
-  assert.equal(RESPONSE_TYPES.length, 1111100);
-  assert.equal(new Set(RESPONSE_TYPES.map(type => type.id)).size, 1111100);
+test('TonyAI exposes 11,111,100 response types', () => {
+  assert.equal(RESPONSE_TYPES.length, 11111100);
+  assert.equal(new Set(RESPONSE_TYPES.map(type => type.id)).size, 11111100);
 });
 
 test('temperature remains a Degrees response type', () => {
@@ -57,16 +57,21 @@ test('generated 1,000,000-type expansion carries contextual search characteristi
   const type = RESPONSE_TYPES.find(item => /^million-/.test(item.id) && /Sports/.test(item.name) && /Schedule/.test(item.name) && /Verified/.test(item.name));
   assert.ok(type);
   assert.match(type.id, /^million-/);
-  assert.match(type.name, /Sports/);
-  assert.match(type.name, /Schedule/);
-  assert.match(type.name, /Verified/);
   assert.ok(type.characteristics.includes('verified'));
   assert.ok(type.searchProfile.includes('confirmed'));
 });
 
-test('contextual classification returns a concrete million-layer type', () => {
+test('generated 10,000,000-type expansion carries contextual search characteristics', () => {
+  const type = RESPONSE_TYPES.find(item => /^10m-/.test(item.id) && /Sports/.test(item.name) && /Schedule/.test(item.name) && /Verified/.test(item.name));
+  assert.ok(type);
+  assert.match(type.id, /^10m-/);
+  assert.ok(type.characteristics.includes('verified'));
+  assert.ok(type.searchProfile.includes('confirmed'));
+});
+
+test('contextual classification returns a concrete 10M-layer type', () => {
   const type = classifyResponseType('What is the latest official sports schedule?');
-  assert.match(type.id, /^million-/);
+  assert.match(type.id, /^10m-/);
   assert.ok(type.searchProfile.length > 0);
 });
 
