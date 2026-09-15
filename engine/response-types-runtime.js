@@ -100,8 +100,6 @@ function chooseContext(question) {
 }
 
 function queryVariant(question) {
-  // Deterministic fingerprint spreads otherwise equivalent questions across the
-  // 10M-context space while preserving the semantic context signal above.
   let hash = 2166136261;
   for (const char of String(question)) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
   return (hash >>> 0) % 10000000;
@@ -110,15 +108,12 @@ function queryVariant(question) {
 function generatedVariant(anchor, context, question) {
   const megaIndex = MEGA_ANCHOR_INDEX.get(anchor.id);
   if (megaIndex == null) return null;
+  // The 100B layer is the primary generated response layer. A deterministic
+  // query fingerprint selects one of 10M contexts for the matched anchor.
   const contextIndex = (context.index * 7919 + queryVariant(question)) % 10000000;
-  const tenIndex = megaIndex * TEN_MILLION_COUNT + (contextIndex % TEN_MILLION_COUNT);
-  const ten = TEN_MILLION_RESPONSE_TYPES.get(tenIndex);
-  if (ten) return ten;
-  const hundredIndex = megaIndex * 10000 + (contextIndex % 10000);
-  const hundred = HUNDRED_MILLION_RESPONSE_TYPES.get(hundredIndex);
-  if (hundred) return hundred;
-  const billionIndex = megaIndex * 10000000 + contextIndex;
-  return HUNDRED_BILLION_RESPONSE_TYPES.get(billionIndex);
+  return HUNDRED_BILLION_RESPONSE_TYPES.get(megaIndex * 10000000 + contextIndex) ||
+    TEN_MILLION_RESPONSE_TYPES.get(megaIndex * TEN_MILLION_COUNT + (contextIndex % TEN_MILLION_COUNT)) ||
+    HUNDRED_MILLION_RESPONSE_TYPES.get(megaIndex * 10000 + (contextIndex % 10000));
 }
 
 export function classifyResponseType(question = '') {
