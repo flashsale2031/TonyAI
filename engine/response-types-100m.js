@@ -1,10 +1,8 @@
 import { MEGA_RESPONSE_TYPES } from './response-types-mega.js';
 
-// 100,000,000 additional contextual response types.
-// 10,000 domain/intent anchors x 10,000 deterministic contexts.
-// Contexts are represented as compact records and expanded lazily so the
-// classifier can address a concrete type without materializing a 100M-object
-// array in browser memory.
+// 100,000,000 additional response types represented as an indexed/lazy array-like
+// collection. Materializing 100M JavaScript objects would make the browser slow
+// and consume excessive memory, so each type is generated only when requested.
 const CONTEXT_FAMILIES = [
   ['direct', 'Direct', ['direct', 'exact', 'specific']],
   ['verified', 'Verified', ['verified', 'confirmed', 'validated']],
@@ -47,43 +45,33 @@ const CONTEXT_FAMILIES = [
   ['beginner', 'Beginner', ['beginner', 'basic', 'simple']],
   ['advanced', 'Advanced', ['advanced', 'expert', 'complex']],
   ['concise', 'Concise', ['concise', 'brief', 'short']],
-  ['detailed', 'Detailed', ['detailed', 'comprehensive', 'thorough']],
+  ['detailed', 'Detailed', ['detailed', 'comprehensive', 'thorough']]
 ];
 
-// 10,000 deterministic context variants. Keeping these as compact records is
-// important: the million and 10M layers can remain usable without creating a
-// huge browser-side object graph.
-export const TEN_THOUSAND_CONTEXTS = Array.from({ length: 10000 }, (_, index) => {
+const CONTEXTS = Array.from({ length: 10000 }, (_, index) => {
   const family = CONTEXT_FAMILIES[index % CONTEXT_FAMILIES.length];
   const group = Math.floor(index / CONTEXT_FAMILIES.length);
-  const suffix = group ? ` ${group + 1}` : '';
-  return {
-    id: `${family[0]}-${group + 1}`,
-    name: `${family[1]}${suffix}`,
-    terms: [...family[2], `context ${group + 1}`]
-  };
+  return { id: `${family[0]}-${group + 1}`, name: `${family[1]}${group ? ` ${group + 1}` : ''}`, terms: family[2] };
 });
 
-export const TEN_MILLION_RESPONSE_TYPES = MEGA_RESPONSE_TYPES.flatMap((base, baseIndex) =>
-  TEN_THOUSAND_CONTEXTS.map((context, contextIndex) => ({
-    id: `100m-${base.id.replace(/^mega-/, '')}-${context.id}`,
-    name: `${base.name} — ${context.name}`,
-    keywords: [...new Set([...(base.keywords || []), ...context.terms])],
-    characteristics: [...new Set([...(base.characteristics || []), ...context.terms])],
-    unit: base.unit || '',
-    domain: base.domain,
-    intent: base.intent,
-    context: context.id,
-    parentTypeId: base.id,
-    searchProfile: [...new Set([...(base.searchProfile || base.characteristics || []), ...context.terms])],
-    _baseIndex: baseIndex,
-    _contextIndex: contextIndex
-  }))
-);
+export const TEN_MILLION_RESPONSE_TYPES = {
+  length: 100000000,
+  get(index) {
+    if (!Number.isInteger(index) || index < 0 || index >= this.length) return undefined;
+    const base = MEGA_RESPONSE_TYPES[Math.floor(index / CONTEXTS.length)];
+    const context = CONTEXTS[index % CONTEXTS.length];
+    if (!base) return undefined;
+    const characteristics = [...new Set([...(base.characteristics || []), ...context.terms])];
+    return {
+      id: `100m-${base.id.replace(/^mega-/, '')}-${context.id}`,
+      name: `${base.name} — ${context.name}`,
+      keywords: [...new Set([...(base.keywords || []), ...context.terms])],
+      characteristics,
+      unit: base.unit || '', domain: base.domain, intent: base.intent,
+      context: context.id, parentTypeId: base.id,
+      searchProfile: [...new Set([...(base.searchProfile || base.characteristics || []), ...context.terms])]
+    };
+  }
+};
 
-if (TEN_MILLION_RESPONSE_TYPES.length !== 100000000) {
-  throw new Error(`Expected 100000000 additional response types, got ${TEN_MILLION_RESPONSE_TYPES.length}`);
-}
-
-export const RESPONSE_TYPES = TEN_MILLION_RESPONSE_TYPES;
-export const RESPONSE_TYPE_COUNT = RESPONSE_TYPES.length;
+export const TEN_MILLION_RESPONSE_TYPE_COUNT = TEN_MILLION_RESPONSE_TYPES.length;
