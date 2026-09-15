@@ -1,6 +1,6 @@
-import { RESPONSE_TYPES as ALL_TYPES } from './response-types.js';
+import { RESPONSE_TYPES as ALL_TYPES } from './response-types-extended.js';
 
-export const RESPONSE_TYPES = ALL_TYPES.slice(0, 100);
+export const RESPONSE_TYPES = ALL_TYPES.slice(0, 1100);
 export const FALLBACK_RESPONSE_TYPE = {
   id: 'generic-factual',
   name: 'General factual answer',
@@ -22,7 +22,7 @@ export function classifyResponseType(question = '') {
   let bestScore = 0;
   for (const type of RESPONSE_TYPES) {
     let score = 0;
-    for (const keyword of type.keywords) if (has(q, keyword)) score += keyword.length > 5 ? 3 : 2;
+    for (const keyword of type.keywords || []) if (has(q, keyword)) score += keyword.length > 5 ? 3 : 2;
     if (type.id === 'temperature' && /temperature|degrees|°f|°c|fahrenheit|celsius|°/i.test(q)) score += 12;
     if (type.id === 'time' && /what time|current time|time in/i.test(q)) score += 8;
     if (score > bestScore) { best = type; bestScore = score; }
@@ -41,19 +41,12 @@ export function extractAnswerForType(text, question, type = classifyResponseType
   const source = String(text || '');
   const ranked = blocks(source).map((block, index) => {
     const lower = block.toLowerCase();
-    const characteristicHits = type.characteristics.filter(value => has(lower, value)).length;
+    const characteristicHits = (type.characteristics || []).filter(value => has(lower, value)).length;
     const questionHits = terms.filter(value => lower.includes(value)).length;
     const temperatureValues = type.id === 'temperature'
       ? (block.match(/[-+]?\d+(?:\.\d+)?\s*(?:°\s*[FCfc]|degrees?\s*(?:Fahrenheit|Celsius|F|C)?|Fahrenheit|Celsius)/g) || [])
       : [];
-    return {
-      block,
-      index,
-      score: characteristicHits * 6 + questionHits * 2 + temperatureValues.length * 14,
-      characteristicHits,
-      questionHits,
-      valueMatches: temperatureValues
-    };
+    return { block, index, score: characteristicHits * 6 + questionHits * 2 + temperatureValues.length * 14, characteristicHits, questionHits, valueMatches: temperatureValues };
   }).filter(item => item.score > 0).sort((a, b) => b.score - a.score || a.index - b.index);
 
   const selected = [];
@@ -68,8 +61,8 @@ export function extractAnswerForType(text, question, type = classifyResponseType
   return {
     typeId: type.id,
     responseType: type.name,
-    unit: type.unit,
-    characteristics: type.characteristics.filter(value => has(source.toLowerCase(), value)),
+    unit: type.unit || '',
+    characteristics: (type.characteristics || []).filter(value => has(source.toLowerCase(), value)),
     valueMatches: selected.flatMap(item => item.valueMatches),
     facts: selected.map(item => item.block),
     matchScore: selected[0]?.score || 0
@@ -78,9 +71,5 @@ export function extractAnswerForType(text, question, type = classifyResponseType
 
 export function buildPageSearchProfile(question = '') {
   const type = classifyResponseType(question);
-  return {
-    type,
-    characteristics: type.characteristics,
-    signals: type.characteristics.join(' OR ')
-  };
+  return { type, characteristics: type.characteristics || [], signals: (type.searchProfile || type.characteristics || []).join(' OR ') };
 }
