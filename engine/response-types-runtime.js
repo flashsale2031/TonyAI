@@ -6,9 +6,38 @@ import { TEN_MILLION_RESPONSE_TYPES } from './response-types-10m.js';
 import { HUNDRED_MILLION_RESPONSE_TYPES } from './response-types-100m.js';
 import { HUNDRED_BILLION_RESPONSE_TYPES } from './response-types-100b.js';
 
-const BASE_TYPES=[...EXTENDED_TYPES,...MEGA_TYPES.filter(type=>!EXTENDED_TYPES.some(existing=>existing.id===type.id)),...HUNDRED_K_TYPES,...MILLION_RESPONSE_TYPES];
-const TOTAL_COUNT=BASE_TYPES.length+TEN_MILLION_RESPONSE_TYPES.length+HUNDRED_MILLION_RESPONSE_TYPES.length+HUNDRED_BILLION_RESPONSE_TYPES.length;
-export const RESPONSE_TYPES={length:TOTAL_COUNT,get(index){if(!Number.isInteger(index)||index<0||index>=TOTAL_COUNT)return undefined;if(index<BASE_TYPES.length)return BASE_TYPES[index];let i=index-BASE_TYPES.length;if(i<TEN_MILLION_RESPONSE_TYPES.length)return TEN_MILLION_RESPONSE_TYPES.get(i);i-=TEN_MILLION_RESPONSE_TYPES.length;if(i<HUNDRED_MILLION_RESPONSE_TYPES.length)return HUNDRED_MILLION_RESPONSE_TYPES.get(i);return HUNDRED_BILLION_RESPONSE_TYPES.get(i);},find(predicate){for(let i=0;i<TOTAL_COUNT;i++){const t=this.get(i);if(t&&predicate(t,i,this))return t;}},forEach(callback){for(let i=0;i<TOTAL_COUNT;i++)callback(this.get(i),i,this);}};
+// Keep startup memory bounded: only the small anchor index is materialized.
+const BASE_TYPES=[...EXTENDED_TYPES,...MEGA_TYPES.filter(type=>!EXTENDED_TYPES.some(existing=>existing.id===type.id)),...HUNDRED_K_TYPES];
+const MILLION_COUNT=MILLION_RESPONSE_TYPES.length;
+const BASE_COUNT=BASE_TYPES.length;
+const TOTAL_COUNT=BASE_COUNT+MILLION_COUNT+TEN_MILLION_RESPONSE_TYPES.length+HUNDRED_MILLION_RESPONSE_TYPES.length+HUNDRED_BILLION_RESPONSE_TYPES.length;
+
+export const RESPONSE_TYPES={
+  length:TOTAL_COUNT,
+  get(index){
+    if(!Number.isInteger(index)||index<0||index>=TOTAL_COUNT)return undefined;
+    if(index<BASE_COUNT)return BASE_TYPES[index];
+    let i=index-BASE_COUNT;
+    if(i<MILLION_COUNT)return MILLION_RESPONSE_TYPES.get(i);
+    i-=MILLION_COUNT;
+    if(i<TEN_MILLION_RESPONSE_TYPES.length)return TEN_MILLION_RESPONSE_TYPES.get(i);
+    i-=TEN_MILLION_RESPONSE_TYPES.length;
+    if(i<HUNDRED_MILLION_RESPONSE_TYPES.length)return HUNDRED_MILLION_RESPONSE_TYPES.get(i);
+    return HUNDRED_BILLION_RESPONSE_TYPES.get(i);
+  },
+  find(predicate){
+    // Finding through the virtual 100B tail is intentionally bounded. The
+    // runtime's classifier uses the anchor index rather than scanning 100B.
+    const limit=BASE_COUNT+MILLION_COUNT;
+    for(let i=0;i<limit;i++){const t=this.get(i);if(t&&predicate(t,i,this))return t;}
+    return undefined;
+  },
+  forEach(callback){
+    // forEach is restricted to materializable anchors; virtual layers expose
+    // get(index) for direct indexed access instead of accidental full scans.
+    for(let i=0;i<BASE_COUNT;i++)callback(this.get(i),i,this);
+  }
+};
 export const RESPONSE_TYPE_COUNT=RESPONSE_TYPES.length;
 export const FALLBACK_RESPONSE_TYPE={id:'generic-factual',name:'General factual answer',keywords:[],characteristics:['answer','fact','source','page'],unit:''};
 const escapeRegex=v=>String(v).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -20,7 +49,7 @@ const CONTEXT_SIGNALS=[['current',['current','now','today','latest']],['official
 function classifyAnchor(question){let best=FALLBACK_RESPONSE_TYPE,bestScore=0;for(const entry of ANCHOR_INDEX){let score=0;for(const keyword of entry.keywords)if(has(question,keyword))score+=keyword.length>5?3:2;if(entry.type.id==='temperature'&&/temperature|degrees|°f|°c|fahrenheit|celsius|°/i.test(question))score+=12;if(entry.type.id==='time'&&/what time|current time|time in/i.test(question))score+=8;if(score>bestScore){best=entry.type;bestScore=score;}}return{type:best,score:bestScore};}
 function chooseContext(question){let best={index:0,score:0};for(let index=0;index<CONTEXT_SIGNALS.length;index++){const [,terms]=CONTEXT_SIGNALS[index];let score=0;for(const term of terms)if(has(question,term))score+=term.length>5?3:2;if(score>best.score)best={index,score};}return best;}
 function queryVariant(question){let hash=2166136261;for(const char of String(question))hash=Math.imul(hash^char.charCodeAt(0),16777619);return(hash>>>0)%10000000;}
-function generatedVariant(anchor,context,question){const megaIndex=MEGA_ANCHOR_INDEX.get(anchor.id);if(megaIndex==null)return null;const contextIndex=(context.index*7919+queryVariant(question))%10000000;return HUNDRED_BILLION_RESPONSE_TYPES.get(megaIndex*10000000+contextIndex)||TEN_MILLION_RESPONSE_TYPES.get(megaIndex*TEN_MILLION_RESPONSE_TYPES.length/MEGA_TYPES.length+(contextIndex%1000))||HUNDRED_MILLION_RESPONSE_TYPES.get(megaIndex*10000+(contextIndex%10000));}
+function generatedVariant(anchor,context,question){const megaIndex=MEGA_ANCHOR_INDEX.get(anchor.id);if(megaIndex==null)return null;const contextIndex=(context.index*7919+queryVariant(question))%10000000;return HUNDRED_BILLION_RESPONSE_TYPES.get(megaIndex*10000000+contextIndex)||TEN_MILLION_RESPONSE_TYPES.get(megaIndex*(TEN_MILLION_RESPONSE_TYPES.length/MEGA_TYPES.length)+(contextIndex%1000))||HUNDRED_MILLION_RESPONSE_TYPES.get(megaIndex*10000+(contextIndex%10000));}
 export function classifyResponseType(question=''){const q=String(question).toLowerCase(),anchor=classifyAnchor(q),context=chooseContext(q),variant=generatedVariant(anchor.type,context,q);return variant?{...variant,score:anchor.score+context.score,anchorType:anchor.type.id}:{...anchor.type,score:anchor.score,anchorType:anchor.type.id};}
 function blocks(text){return String(text||'').replace(/\r/g,'').split(/(?<=[.!?])\s+|\n+/).map(v=>v.replace(/\s+/g,' ').trim()).filter(v=>v.length>=20&&v.length<=900);}
 export function extractAnswerForType(text,question,type=classifyResponseType(question)){const terms=String(question||'').toLowerCase().split(/[^a-z0-9°]+/).filter(v=>v.length>2),source=String(text||'');const ranked=blocks(source).map((block,index)=>{const lower=block.toLowerCase(),characteristicHits=(type.characteristics||[]).filter(value=>has(lower,value)).length,questionHits=terms.filter(value=>lower.includes(value)).length,valueMatches=type.id==='temperature'?(block.match(/[-+]?\d+(?:\.\d+)?\s*(?:°\s*[FCfc]|degrees?\s*(?:Fahrenheit|Celsius|F|C)?|Fahrenheit|Celsius)/g)||[]):[];return{block,index,score:characteristicHits*6+questionHits*2+valueMatches.length*14,valueMatches};}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||a.index-b.index);const selected=[],seen=new Set();for(const item of ranked){if(seen.has(item.block))continue;seen.add(item.block);selected.push(item);if(selected.length===8)break;}return{typeId:type.id,responseType:type.name,unit:type.unit||'',characteristics:(type.characteristics||[]).filter(value=>has(source.toLowerCase(),value)),valueMatches:selected.flatMap(x=>x.valueMatches),facts:selected.map(x=>x.block),matchScore:selected[0]?.score||0};}
