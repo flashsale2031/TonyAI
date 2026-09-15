@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ResultsCollection, buildResultRecord } from '../engine/results-collection.js';
+import { ResultsCollection, buildResultRecord, verifyCodeFences } from '../engine/results-collection.js';
 
 const profile = {
   query: 'current price product',
@@ -42,6 +42,7 @@ test('collection creates one deterministic document from webpage data', () => {
   assert.equal(document.recordCount, 3);
   assert.match(document.text, /^# TonyAI Web Results Collection/);
   assert.match(document.text, /Current price is \$49\.99/);
+  assert.equal(document.integrity.codeFencesBalanced, true);
 });
 
 test('collection deduplicates normalized URLs and keeps the richer record', () => {
@@ -72,13 +73,45 @@ test('collection organizes and rebuilds without losing normalization', () => {
   assert.equal(collection.top()[0].domain, 'example.gov');
 });
 
-test('rendered collected code cannot terminate the document code fence', () => {
+test('rendered collected code uses a fence wider than any embedded backtick run', () => {
   const collection = new ResultsCollection('current price product', { profile });
   collection.collect([pages[0]]);
   const text = collection.document().text;
   assert.match(text, /Code \(javascript\):/);
-  assert.doesNotMatch(text, /```javascript\nunsafe\(\);\n```/);
-  assert.match(text, /` ` `javascript/);
+  assert.match(text, /`{4}javascript/);
+  assert.equal(verifyCodeFences(text), true);
+});
+
+test('collection truncates only at complete record boundaries', () => {
+  const huge = 'x'.repeat(70000);
+  const collection = new ResultsCollection('current price product', { profile, limit: 8 });
+  collection.collect(Array.from({ length: 8 }, (_, index) => ({
+    url: `https://example.test/page-${index}`,
+    title: `Page ${index}`,
+    description: huge,
+    code: `const value = ${index};\n` + huge,
+    language: 'javascript'
+  })));
+  const document = collection.document();
+  assert.equal(document.truncated, true);
+  assert.equal(document.integrity.codeFencesBalanced, true);
+  assert.ok(document.text.length > 0);
+});
+
+test('record identifiers and hashes are deterministic for identical source data', () => {
+  const first = buildResultRecord(pages[1], profile);
+  const second = buildResultRecord(pages[1], profile);
+  assert.equal(first.id, second.id);
+  assert.equal(first.sourceId, second.sourceId);
+  assert.equal(first.contentHash, second.contentHash);
+});
+
+test('unsupported URL schemes are rejected instead of becoming rendered links', () => {
+  const record = buildResultRecord({ url: 'javascript:alert(1)', title: 'Unsafe' }, profile);
+  assert.equal(record.url, '');
+  const collection = new ResultsCollection('current price product', { profile });
+  collection.collect([{ url: 'javascript:alert(1)', title: 'Unsafe' }]);
+  assert.equal(collection.results.size, 0);
 });
 
 test('control characters and replacement characters are removed from collected data', () => {
