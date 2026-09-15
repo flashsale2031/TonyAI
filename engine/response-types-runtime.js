@@ -1,12 +1,14 @@
 import { RESPONSE_TYPES as EXTENDED_TYPES } from './response-types-extended.js';
 import { RESPONSE_TYPES as MEGA_TYPES } from './response-types-mega.js';
 import { RESPONSE_TYPES as HUNDRED_K_TYPES } from './response-types-100k.js';
+import { MILLION_RESPONSE_TYPES, CONTEXTS } from './response-types-million.js';
 
-// 100 base + 1,000 extended + 10,000 mega + 100,000 new variants.
+// 100 base + 1,000 extended + 10,000 mega + 100,000 prior variants + 1,000,000 new variants.
 export const RESPONSE_TYPES = [
   ...EXTENDED_TYPES,
   ...MEGA_TYPES.filter(type => !EXTENDED_TYPES.some(existing => existing.id === type.id)),
-  ...HUNDRED_K_TYPES
+  ...HUNDRED_K_TYPES,
+  ...MILLION_RESPONSE_TYPES
 ];
 export const RESPONSE_TYPE_COUNT = RESPONSE_TYPES.length;
 export const FALLBACK_RESPONSE_TYPE = {
@@ -21,21 +23,55 @@ const has = (text, token) => {
   return new RegExp(`(^|[^a-z0-9])${escapeRegex(token)}([^a-z0-9]|$)`, 'i').test(text);
 };
 
-// Index type signals once instead of scanning 111,100 objects for every query.
-const SIGNAL_INDEX = RESPONSE_TYPES.map(type => ({ type, keywords: (type.keywords || []).map(String) }));
+// The million-type layer is intentionally indexed compositionally. We classify the
+// domain/intent anchor first, then choose the best contextual variant. This avoids
+// an O(1,000,000) keyword scan on every keystroke while preserving a concrete type.
+const ANCHOR_TYPES = [
+  ...EXTENDED_TYPES,
+  ...MEGA_TYPES.filter(type => !EXTENDED_TYPES.some(existing => existing.id === type.id)),
+  ...HUNDRED_K_TYPES
+];
+const ANCHOR_INDEX = ANCHOR_TYPES.map(type => ({ type, keywords: (type.keywords || []).map(String) }));
+const MEGA_ANCHOR_INDEX = new Map(MEGA_TYPES.map((type, index) => [type.id, index]));
+const CONTEXT_INDEX = CONTEXTS.map((context, index) => ({ context, index, terms: context[2].map(String) }));
+
+function classifyAnchor(question) {
+  let best = FALLBACK_RESPONSE_TYPE;
+  let bestScore = 0;
+  for (const entry of ANCHOR_INDEX) {
+    let score = 0;
+    for (const keyword of entry.keywords) if (has(question, keyword)) score += keyword.length > 5 ? 3 : 2;
+    if (entry.type.id === 'temperature' && /temperature|degrees|°f|°c|fahrenheit|celsius|°/i.test(question)) score += 12;
+    if (entry.type.id === 'time' && /what time|current time|time in/i.test(question)) score += 8;
+    if (score > bestScore) { best = entry.type; bestScore = score; }
+  }
+  return { type: best, score: bestScore };
+}
+
+function chooseContext(question) {
+  let bestIndex = 0;
+  let bestScore = 0;
+  for (const entry of CONTEXT_INDEX) {
+    let score = 0;
+    for (const term of entry.terms) if (has(question, term)) score += term.length > 5 ? 3 : 2;
+    if (score > bestScore) { bestIndex = entry.index; bestScore = score; }
+  }
+  return { index: bestIndex, score: bestScore };
+}
+
+function millionVariantFor(anchor, contextIndex) {
+  const megaIndex = MEGA_ANCHOR_INDEX.get(anchor.id);
+  if (megaIndex == null) return null;
+  return MILLION_RESPONSE_TYPES[megaIndex * CONTEXTS.length + contextIndex] || null;
+}
 
 export function classifyResponseType(question = '') {
   const q = String(question).toLowerCase();
-  let best = FALLBACK_RESPONSE_TYPE;
-  let bestScore = 0;
-  for (const entry of SIGNAL_INDEX) {
-    let score = 0;
-    for (const keyword of entry.keywords) if (has(q, keyword)) score += keyword.length > 5 ? 3 : 2;
-    if (entry.type.id === 'temperature' && /temperature|degrees|°f|°c|fahrenheit|celsius|°/i.test(q)) score += 12;
-    if (entry.type.id === 'time' && /what time|current time|time in/i.test(q)) score += 8;
-    if (score > bestScore) { best = entry.type; bestScore = score; }
-  }
-  return { ...best, score: bestScore };
+  const anchor = classifyAnchor(q);
+  const context = chooseContext(q);
+  const variant = millionVariantFor(anchor.type, context.index);
+  if (variant) return { ...variant, score: anchor.score + context.score, anchorType: anchor.type.id };
+  return { ...anchor.type, score: anchor.score, anchorType: anchor.type.id };
 }
 
 function blocks(text) {
@@ -66,6 +102,6 @@ export function extractAnswerForType(text, question, type = classifyResponseType
 export function buildPageSearchProfile(question = '') {
   const type = classifyResponseType(question);
   const characteristics = [...new Set(type.characteristics || [])];
-  const searchTerms = [...new Set(type.searchProfile || characteristics)].slice(0, 16);
+  const searchTerms = [...new Set(type.searchProfile || characteristics)].slice(0, 20);
   return { type, characteristics, searchTerms, signals: searchTerms.join(' OR ') };
 }
