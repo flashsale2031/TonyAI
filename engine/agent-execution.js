@@ -74,8 +74,16 @@ async function githubWrite(request) {
   const body = { message: String(request?.message || `TonyAI agent update: ${pathName}`).slice(0, 200), content: Buffer.from(content, 'utf8').toString('base64') };
   if (request?.branch) body.branch = String(request.branch);
   if (request?.sha) body.sha = String(request.sha);
+  if (!body.sha) {
+    try {
+      const current = await github(pathName, 'GET');
+      if (current?.sha) body.sha = current.sha;
+    } catch (error) {
+      if (!String(error?.message || error).includes('GitHub API 404')) throw error;
+    }
+  }
   const result = await github(pathName, 'PUT', body);
-  return { ok: true, path: pathName, commit: result?.commit?.sha || null, contentSha: result?.content?.sha || null, url: result?.content?.html_url || null };
+  return { ok: true, path: pathName, operation: body.sha ? 'update' : 'create', commit: result?.commit?.sha || null, contentSha: result?.content?.sha || null, url: result?.content?.html_url || null };
 }
 export async function executeAgent(request, authorization) {
   if (!auth(authorization)) return { status: 401, body: { error: 'Unauthorized agent request' } };
