@@ -36,7 +36,11 @@ export function selectMostCredibleResponse(result = {}) {
   for (const source of sources) {
     if (!source || typeof source.url !== 'string' || !source.url) continue;
     const existing = byUrl.get(source.url);
-    if (!existing || scoreOf(source) > scoreOf(existing)) byUrl.set(source.url, source);
+    const sourceHasContent = Boolean(sourceContent(source, pages));
+    const existingHasContent = Boolean(existing && sourceContent(existing, pages));
+    const sourceOwnContent = (Array.isArray(source.claims) && source.claims.length) || (typeof source.text === 'string' && source.text.trim());
+    const existingOwnContent = existing && ((Array.isArray(existing.claims) && existing.claims.length) || (typeof existing.text === 'string' && existing.text.trim()));
+    if (!existing || scoreOf(source) > scoreOf(existing) || (scoreOf(source) === scoreOf(existing) && sourceHasContent && (!existingHasContent || sourceOwnContent && !existingOwnContent))) byUrl.set(source.url, source);
   }
 
   const source = selectMostCredibleSource([...byUrl.values()]);
