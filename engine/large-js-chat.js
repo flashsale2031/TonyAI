@@ -5,6 +5,7 @@ import { duckduckgoSearch } from './duckduckgo.js';
 import { chatresponse } from './chatresponse.js';
 import { containsProtectedOperation } from './safetyboundaries.js';
 import { tonyAIProvider } from './tonyai-provider.js';
+import { capabilityRuntime } from './capability-runtime.js';
 
 const clean=s=>String(s??'').trim();
 const wants=(s,re)=>re.test(s);
@@ -24,6 +25,7 @@ function parseConsensusRequest(text){
 
 export async function largeJSChat({messages=[],attachments=[]}={},assistant=null){
  const history=Array.isArray(messages)?messages.slice(-40):[];const latest=clean([...history].reverse().find(m=>m?.role==='user')?.content);if(!latest)throw new Error('Message is required');
+ const route=capabilityRuntime.route(latest);
  largeJavaScriptLM.context.push(...latest.split(/\s+/));largeJavaScriptLM.context=largeJavaScriptLM.context.slice(-largeJavaScriptLM.maxContext);
  if(containsProtectedOperation(latest))return{reply:'I can explain or validate a protected operation, but I will not execute or expose passwords, authentication factors, payment/banking credentials, or private secrets.',confidence:.98,source:'large-js-safety',requiresHuman:true,largeJavaScriptLM:true,parameterCapacity:450_000_000_000,provider:tonyAIProvider.capabilities()};
  const toolResults=[];let reply=null;let confidence=.45;let sources=[];let artifacts=null;let searchTrace=null;
@@ -51,7 +53,8 @@ export async function largeJSChat({messages=[],attachments=[]}={},assistant=null
  const synthesized=largeJavaScriptLM.synthesize(latest,{retrieved:largeJavaScriptLM.retrieve(latest,6),toolResults:toolSummary(toolResults),sources});
  if(!reply&&synthesized)reply=synthesized;else if(!reply)reply=largeJavaScriptLM.generate(latest,{maxTokens:256,temperature:.38});
  if(reply&&!containsQueryToken(reply,latest))reply=`${reply}\n\nRequested topic: ${latest}`;
- return{reply,confidence,requiresHuman:false,source:'large-js-primary',provider:tonyAIProvider.capabilities(),largeJavaScriptLM:true,primaryGenerationBackbone:'pure-javascript-sparse-neural-symbolic',pretrainedModel:false,externalNeuralModel:false,externalGenerationAPI:false,openAIRequired:false,parameterCapacity:450_000_000_000,toolResults,sources,searchTrace,artifacts,attachmentCount:Array.isArray(attachments)?attachments.length:0,stats:largeJavaScriptLM.stats()};
+ capabilityRuntime.record('chat-complete',{intent:route.intent,confidence,toolCount:toolResults.length});
+ return{reply,confidence,requiresHuman:false,source:'large-js-primary',route,provider:tonyAIProvider.capabilities(),largeJavaScriptLM:true,primaryGenerationBackbone:'pure-javascript-sparse-neural-symbolic',pretrainedModel:false,externalNeuralModel:false,externalGenerationAPI:false,openAIRequired:false,parameterCapacity:450_000_000_000,toolResults,sources,searchTrace,artifacts,attachmentCount:Array.isArray(attachments)?attachments.length:0,stats:largeJavaScriptLM.stats()};
 }
 
 function containsQueryToken(answer,query){
