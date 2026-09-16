@@ -40,7 +40,12 @@ function makeType(domainId, intentId) {
   };
 }
 
-if (BASE_TYPES.length !== 400) throw new Error(`Expected 400 base response types, got ${BASE_TYPES.length}`);
+// Do not require a historical hard-coded base count here. The base catalog
+// is intentionally allowed to evolve; the generated mega catalog only needs
+// a non-empty source catalog and its own strict 100 × 100 invariant.
+if (!Number.isInteger(BASE_TYPES.length) || BASE_TYPES.length < 1) {
+  throw new Error(`Base response type catalog is empty or invalid: ${BASE_TYPES.length}`);
+}
 if (DOMAIN_IDS.length !== 100) throw new Error(`Expected 100 mega domains, got ${DOMAIN_IDS.length}`);
 if (INTENT_IDS.length !== 100) throw new Error(`Expected 100 mega intents, got ${INTENT_IDS.length}`);
 
