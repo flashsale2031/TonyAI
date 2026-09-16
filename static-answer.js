@@ -35,15 +35,16 @@
     const ranked = rankResults(rows, q);
     if (/\bwho\s+(?:is|was)\s+(?:the\s+)?(?:current\s+)?president\b|\bcurrent\s+president\b/i.test(q)) {
       const evidence = ranked.find(row => /\bpresident\b/i.test(`${row.title} ${row.snippet}`));
-      const match = evidence && `${evidence.title} ${evidence.snippet}`.match(/\bPresident\s+((?:[A-Z][\w'.-]*\s+){1,4}[A-Z][\w'.-]*)/);
+      const evidenceText = evidence && `${evidence.title} ${evidence.snippet}`.replace(/\*+/g, '');
+      const match = evidenceText && (evidenceText.match(/\bPresident\s+((?:[A-Z][\w'.-]*\s*){1,5}?)(?=\s+(?:is|built|when|who|[-–—]|the\b)|[.,;:]|$)/) || evidenceText.match(/\bcurrent\s+President\b[^.]{0,80}?\bis\s+((?:[A-Z][\w'.-]*\s*){1,5}?)(?=\s+(?:who|and|the\b)|[.,;:]|$)/i));
       if (match) return { text: `The current president is ${clean(match[1]).replace(/[.,;:]+$/, '')}.`, source: evidence, ranked };
     }
     return null;
   }
   function parse(text) {
     const source = String(text || '').replace(/\r/g, '');
-    const pattern = /^\s*\d+\.\s+##\s+\[\*\*(.*?)\*\*\]\((https?:\/\/[^)]+)\)\s*\n([^\n]*)/gm;
-    return [...source.matchAll(pattern)].map(match => ({ title: clean(match[1]), url: match[2], snippet: clean(match[3]) }));
+    const pattern = /^\s*\d+\.\s+##\s+\[([^\]]+)\]\((https?:\/\/[^)]+)\)\s*\n([^\n]*)/gm;
+    return [...source.matchAll(pattern)].map(match => ({ title: clean(match[1].replace(/\*+/g, '')), url: match[2], snippet: clean(match[3]) }));
   }
   function escapeHtml(value) { return clean(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char])); }
   window.TonyStaticAnswer = { parse, rankResults, directAnswer, escapeHtml };
