@@ -1,8 +1,8 @@
 import { RESPONSE_TYPES as BASE_TYPES } from './response-types.js';
 
 // Exactly 10,000 generated response types: 100 domains × 100 intents.
-// Keep this catalog deterministic and strict so the browser cannot load a
-// mismatched 10,400-entry variant.
+// This module's RESPONSE_TYPES export is intentionally the generated mega
+// catalog only. The smaller base catalog remains available from response-types.js.
 const DOMAIN_IDS = ['weather', 'climate', 'geography', 'population', 'demographics', 'economy', 'finance', 'banking', 'insurance', 'real_estate', 'business', 'marketing', 'retail', 'food', 'nutrition', 'science', 'physics', 'chemistry', 'biology', 'medicine', 'anatomy', 'space', 'astronomy', 'environment', 'energy', 'technology', 'software', 'programming', 'web', 'cybersecurity', 'data', 'artificial_intelligence', 'education', 'careers', 'law', 'government', 'politics', 'elections', 'history', 'culture', 'language', 'literature', 'film', 'television', 'music', 'games', 'sports', 'travel', 'transportation', 'automotive', 'aviation', 'railways', 'shipping', 'logistics', 'manufacturing', 'construction', 'agriculture', 'gardening', 'pets', 'animals', 'plants', 'geology', 'oceanography', 'meteorology', 'ecology', 'energy_policy', 'utilities', 'telecommunications', 'internet_services', 'consumer_electronics', 'hardware', 'databases', 'cloud', 'devops', 'open_source', 'mobile_apps', 'user_experience', 'design', 'security_privacy', 'cryptography', 'robotics', 'spaceflight', 'research', 'mathematics', 'statistics', 'psychology', 'sociology', 'philosophy', 'religion_studies', 'architecture', 'art', 'fashion', 'beauty', 'fitness', 'medicine_pharmacy', 'public_health', 'veterinary', 'food_safety', 'education_testing', 'workplace'];
 const INTENT_IDS = ['current', 'historical', 'definition', 'comparison', 'ranking', 'count', 'price', 'availability', 'schedule', 'location', 'distance', 'duration', 'quantity', 'percentage', 'specification', 'requirements', 'cause', 'process', 'forecast', 'evidence', 'origin', 'history', 'trend', 'growth', 'decline', 'rate', 'average', 'median', 'maximum', 'minimum', 'range', 'distribution', 'frequency', 'probability', 'risk', 'benefit', 'drawback', 'pros_cons', 'feature', 'function', 'performance', 'quality', 'accuracy', 'capacity', 'compatibility', 'version', 'release', 'requirements_list', 'instructions', 'tutorial', 'example', 'use_case', 'recommendation', 'alternative', 'selection', 'review', 'rating', 'opinion', 'explanation', 'summary', 'details', 'list', 'steps', 'checklist', 'troubleshooting', 'diagnosis', 'solution', 'status', 'progress', 'deadline', 'timeline', 'cost_breakdown', 'budget', 'revenue', 'profit', 'loss', 'value', 'measurement', 'conversion', 'formula', 'calculation', 'unit', 'data_source', 'citation', 'methodology', 'study', 'sample', 'survey', 'benchmark', 'test', 'result', 'impact', 'relationship', 'cause_effect', 'prediction', 'scenario', 'policy', 'legal_requirement', 'eligibility', 'application'];
 
@@ -40,6 +40,7 @@ function makeType(domainId, intentId) {
   };
 }
 
+if (BASE_TYPES.length !== 400) throw new Error(`Expected 400 base response types, got ${BASE_TYPES.length}`);
 if (DOMAIN_IDS.length !== 100) throw new Error(`Expected 100 mega domains, got ${DOMAIN_IDS.length}`);
 if (INTENT_IDS.length !== 100) throw new Error(`Expected 100 mega intents, got ${INTENT_IDS.length}`);
 
@@ -51,7 +52,9 @@ if (MEGA_RESPONSE_TYPES.length !== 10000) {
   throw new Error(`Expected 10000 mega response types, got ${MEGA_RESPONSE_TYPES.length}`);
 }
 
-export const RESPONSE_TYPES = [...BASE_TYPES, ...MEGA_RESPONSE_TYPES];
+// RESPONSE_TYPES is the strict 10,000-entry mega catalog. Keep the base
+// catalog separately named so consumers do not accidentally count 10,400.
+export const RESPONSE_TYPES = MEGA_RESPONSE_TYPES;
 export const RESPONSE_TYPE_COUNT = RESPONSE_TYPES.length;
 
 export function getResponseTypeProfile(type) {
