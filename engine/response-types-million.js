@@ -1,3 +1,4 @@
+import './procedural-image-generator.js';
 import { MEGA_RESPONSE_TYPES } from './response-types-mega.js';
 
 // Virtual one-million response-type layer. Objects are created only when a
