@@ -3,21 +3,14 @@ import natural from "natural";
 import stopword from "stopword";
 import Bottleneck from "bottleneck";
 import crypto from "crypto";
+import { duckduckgoSearch } from "./duckduckgo.js";
 
 const tokenizer = new natural.WordTokenizer();
 const limiter = new Bottleneck({ maxConcurrent: 2, minTime: 1200 });
 
 async function searchDuckDuckGo(question) {
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ userAgent: "Mozilla/5.0 (compatible; EvidenceChat/1.0)" });
-  try {
-    await page.goto(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(question)}`, { waitUntil: "domcontentloaded", timeout: 30000 });
-    return await page.locator(".result").evaluateAll(nodes => nodes.map(node => {
-      const link = node.querySelector(".result__a");
-      const snippet = node.querySelector(".result__snippet");
-      return { title: link?.textContent?.trim() || "", url: link?.href || "", snippet: snippet?.textContent?.trim() || "" };
-    }));
-  } finally { await browser.close(); }
+  const response = await duckduckgoSearch(question, { maxResults: 10, timeoutMs: 10000 });
+  return response.results;
 }
 
 function removeDuplicateResults(results) {
@@ -144,7 +137,7 @@ function similarity(a, b) { const wordsA = new Set(words(a)), wordsB = new Set(w
 function contradictionKey(text) { return normalizeText(text).replace(/\b(not|no|never|cannot|cant|doesnt|isnt|arent|without)\b/g, "").replace(/\b\d+(?:[.,]\d+)?\b/g, "number"); }
 function normalizeClaim(text) { return normalizeText(text).replace(/\b\d+(?:[.,]\d+)?\b/g, "number").slice(0, 500); }
 function words(text) { return stopword.removeStopwords(tokenizer.tokenize(String(text).toLowerCase())).filter(word => word.length > 2 && /^[a-z0-9]+$/i.test(word)); }
-function cleanText(text) { return text.replace(/\s+/g, " ").replace(/[^\p{L}\p{N}\s.,!?\"'():;%-]/gu, "").trim(); }
+function cleanText(text) { return text.replace(/\s+/g, " ").replace(/[^\p{L}\p{N}\s.,!?"'():;%-]/gu, "").trim(); }
 function normalizeText(text) { return String(text).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim(); }
 function normalizeUrl(url) { try { const parsed = new URL(url); parsed.hash = ""; parsed.search = ""; return parsed.toString().replace(/\/$/, ""); } catch { return ""; } }
 function normalizeDate(value, jsonLd = []) { if (value) return value; for (const item of jsonLd) { const objects = Array.isArray(item) ? item : [item]; for (const object of objects) if (object?.datePublished) return object.datePublished; } return ""; }

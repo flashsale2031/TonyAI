@@ -5,5 +5,5 @@
   "type":"module",
   "description":"TONY ultimate AI chat workspace powered by the supplied data-entry agent modules.",
   "scripts":{"start":"node server.js","worker":"node engine/worker.js","doctor":"node scripts/doctor.js","test":"node --test","test:chatbox-100":"node server.js > /tmp/tonyai-chatbox.log 2>&1 & SERVER_PID=$!; trap 'kill $SERVER_PID 2>/dev/null || true' EXIT; sleep 1; node scripts/chatbox-100-live.mjs","lint":"node --check server.js && node --check engine/ultimate-assistant.js && node --check engine/chatresponse-client.js && node --check scripts/chatbox-100-live.mjs"},
-  "dependencies":{"dotenv":"^16.4.7","playwright":"^1.55.0"}
+  "dependencies":{"bottleneck":"^2.19.5","dotenv":"^16.4.7","natural":"^8.1.0","playwright":"^1.55.0","stopword":"^2.0.8"}
 }
